@@ -66,8 +66,8 @@ async def check_posting(request: CheckRequest):
     # Step 1: Structured extraction (Anthropic LLM or regex fallback)
     extracted = await extract_fields(request.raw_text)
 
-    # Step 2: Concurrently evaluate all SerpApi signals
-    signals = await evaluate_all_signals(extracted)
+    # Step 2: Concurrently evaluate all SerpApi & in-text signals
+    signals = await evaluate_all_signals(extracted, request.raw_text)
 
     # Step 3: Compute weighted score and verdict
     risk_score, verdict, verdict_badge, summary = calculate_risk_score(signals)

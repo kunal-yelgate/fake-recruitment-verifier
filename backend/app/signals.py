@@ -1,14 +1,15 @@
-"""Parallel SerpApi signal evaluators for cross-checking job postings with live web data."""
+"""Parallel SerpApi and text forensic signal evaluators for cross-checking job postings with live web data."""
 
 import asyncio
 import urllib.parse
-from typing import List, Tuple
+from typing import List, Optional
 from app.models import ExtractedFields, SignalResult
 from app.serpapi_client import serpapi_client
 
 FREE_EMAIL_DOMAINS = {
     "gmail.com",
     "yahoo.com",
+    "yahoo.co.uk",
     "hotmail.com",
     "outlook.com",
     "aol.com",
@@ -17,6 +18,37 @@ FREE_EMAIL_DOMAINS = {
     "icloud.com",
     "mail.com",
     "zoho.com",
+    "gmx.com",
+    "yandex.com",
+    "tutanota.com",
+    "live.com",
+    "mail.ru",
+    "fastmail.com",
+    "hushmail.com",
+}
+
+JOB_PLATFORM_DOMAINS = {
+    "indeed.com",
+    "glassdoor.com",
+    "linkedin.com",
+    "monster.com",
+    "ziprecruiter.com",
+    "lever.co",
+    "greenhouse.io",
+    "workday.com",
+    "workable.com",
+    "ashbyhq.com",
+    "bamboohr.com",
+    "smartrecruiters.com",
+    "wikipedia.org",
+    "facebook.com",
+    "bloomberg.com",
+    "crunchbase.com",
+    "twitter.com",
+    "x.com",
+    "youtube.com",
+    "instagram.com",
+    "medium.com",
 }
 
 
@@ -34,9 +66,96 @@ def _extract_domain_from_url(url: str) -> str:
         return ""
 
 
+async def check_in_text_threats(fields: ExtractedFields, raw_text: str = "") -> SignalResult:
+    """Check 1: Internal NLP & Regex scanner for explicit in-posting fraud patterns."""
+    text_lower = raw_text.lower()
+    threats_found = []
+
+    # Check 1: Check Deposit / Upfront Hardware Fraud
+    check_deposit_keywords = [
+        "check deposit", "deposit check", "cashier check", "upfront check",
+        "purchase equipment", "purchase hardware", "buy hardware", "buy equipment",
+        "wire transfer", "western union", "moneygram"
+    ]
+    matched_checks = [kw for kw in check_deposit_keywords if kw in text_lower]
+    if matched_checks:
+        threats_found.append(f"Check deposit / equipment purchase trap detected ('{matched_checks[0]}')")
+
+    # Check 2: Unverified Instant Messaging Redirects for Interviewing
+    chat_redirect_keywords = [
+        "telegram", "@hr", "@recruiter", "wa.me", "whatsapp", "signal app",
+        "google chat", "hangouts"
+    ]
+    matched_chats = [kw for kw in chat_redirect_keywords if kw in text_lower]
+    if matched_chats:
+        threats_found.append(f"Unverified chat interview redirect ('{matched_chats[0]}')")
+
+    # Check 3: Non-standard Payouts / Crypto
+    crypto_keywords = ["bitcoin", "usdt", "crypto", "gift card"]
+    matched_crypto = [kw for kw in crypto_keywords if kw in text_lower]
+    if matched_crypto:
+        threats_found.append(f"Non-standard cryptocurrency / gift card payment request ('{matched_crypto[0]}')")
+
+    # Check 4: Unrealistic Pay-for-Effort Ratio
+    if any(title in text_lower for title in ["data entry", "administrative assistant", "clerk", "typist"]):
+        if any(rate in text_lower for rate in ["$40", "$45", "$50", "$55", "$60", "$70"]) and ("no experience" in text_lower or "immediate" in text_lower):
+            threats_found.append("Unrealistic pay rate ($40+/hr) for low-skill entry position")
+
+    if len(threats_found) >= 2 or any("check deposit" in t.lower() or "chat interview" in t.lower() for t in threats_found):
+        reasons = "; ".join(threats_found)
+        return SignalResult(
+            signal_key="text_threat_signals",
+            signal_name="In-Posting Threat Patterns",
+            engine="nlp_regex",
+            score_delta=25,
+            status="fail",
+            finding=f"Critical Fraud Alert: Posting contains explicit scam signatures: {reasons}.",
+            query_used="In-text NLP Threat Pattern Scan",
+            evidence_url=None,
+            search_url=None,
+        )
+    elif len(threats_found) == 1:
+        return SignalResult(
+            signal_key="text_threat_signals",
+            signal_name="In-Posting Threat Patterns",
+            engine="nlp_regex",
+            score_delta=10,
+            status="warning",
+            finding=f"Caution: Posting contains potential threat pattern: {threats_found[0]}.",
+            query_used="In-text NLP Threat Pattern Scan",
+            evidence_url=None,
+            search_url=None,
+        )
+
+    return SignalResult(
+        signal_key="text_threat_signals",
+        signal_name="In-Posting Threat Patterns",
+        engine="nlp_regex",
+        score_delta=-10,
+        status="pass",
+        finding="No in-text scam signatures, check deposit traps, or unverified chat redirects detected.",
+        query_used="In-text NLP Threat Pattern Scan",
+        evidence_url=None,
+        search_url=None,
+    )
+
+
 async def check_company_footprint(fields: ExtractedFields) -> SignalResult:
-    """Check 1: Google Maps real-world physical presence check."""
-    company = fields.company_name or "Company"
+    """Check 2: Google Maps real-world physical presence check."""
+    company = fields.company_name or ""
+    if not company or company == "Undisclosed Company":
+        return SignalResult(
+            signal_key="company_footprint",
+            signal_name="Company Physical Footprint",
+            engine="google_maps",
+            score_delta=0,
+            status="warning",
+            finding="Company name not disclosed in posting; physical footprint check bypassed.",
+            query_used="N/A",
+            evidence_url=None,
+            search_url=None,
+        )
+
     query = company
     params = {"q": query}
 
@@ -58,7 +177,7 @@ async def check_company_footprint(fields: ExtractedFields) -> SignalResult:
     company_clean = "".join(c for c in company.lower() if c.isalnum() or c.isspace())
     stopwords = {"inc", "llc", "corp", "corporation", "ltd", "limited", "group", "co", "the", "services", "solutions", "agency", "staffing"}
     specific_words = [w for w in company_clean.split() if w not in stopwords and len(w) >= 3]
-    
+
     for res in candidates:
         res_title = res.get("title", "").lower()
         if specific_words and all(w in res_title for w in specific_words):
@@ -96,8 +215,21 @@ async def check_company_footprint(fields: ExtractedFields) -> SignalResult:
 
 
 async def check_linkedin_presence(fields: ExtractedFields) -> SignalResult:
-    """Check 2: Google search with site:linkedin.com to verify official company page."""
-    company = fields.company_name or "Company"
+    """Check 3: Google search with site:linkedin.com to verify official company page."""
+    company = fields.company_name or ""
+    if not company or company == "Undisclosed Company":
+        return SignalResult(
+            signal_key="linkedin_presence",
+            signal_name="LinkedIn Corporate Presence",
+            engine="google",
+            score_delta=0,
+            status="warning",
+            finding="Company name not disclosed in posting; LinkedIn corporate search bypassed.",
+            query_used="N/A",
+            evidence_url=None,
+            search_url=None,
+        )
+
     query = f'site:linkedin.com/company "{company}"'
     params = {"q": query}
 
@@ -111,7 +243,6 @@ async def check_linkedin_presence(fields: ExtractedFields) -> SignalResult:
         link = item.get("link", "")
         if "linkedin.com/company/" in link:
             evidence_url = link
-            snippet = item.get("snippet", "")
             return SignalResult(
                 signal_key="linkedin_presence",
                 signal_name="LinkedIn Corporate Presence",
@@ -138,7 +269,7 @@ async def check_linkedin_presence(fields: ExtractedFields) -> SignalResult:
 
 
 async def check_duplicate_posting(fields: ExtractedFields) -> SignalResult:
-    """Check 3: Exact phrase search to spot cross-posting spam or scraper fingerprint."""
+    """Check 4: Exact phrase search to spot cross-posting spam or scraper fingerprint."""
     phrase = fields.distinctive_phrase or "hiring remote immediate"
     query = f'"{phrase}"'
     params = {"q": query}
@@ -201,8 +332,21 @@ async def check_duplicate_posting(fields: ExtractedFields) -> SignalResult:
 
 
 async def check_news_fraud(fields: ExtractedFields) -> SignalResult:
-    """Check 4: Google News scan for scam, fraud, or lawsuit complaints."""
-    company = fields.company_name or "Company"
+    """Check 5: Google News scan for scam, fraud, or lawsuit complaints with false-positive protection."""
+    company = fields.company_name or ""
+    if not company or company == "Undisclosed Company":
+        return SignalResult(
+            signal_key="news_fraud_mentions",
+            signal_name="News Fraud & Scam Mentions",
+            engine="google_news",
+            score_delta=0,
+            status="pass",
+            finding="Company name not disclosed; news fraud check bypassed.",
+            query_used="N/A",
+            evidence_url=None,
+            search_url=None,
+        )
+
     query = f'"{company}" (scam OR fraud OR fake OR lawsuit OR complaint)'
     params = {"q": query}
 
@@ -214,8 +358,31 @@ async def check_news_fraud(fields: ExtractedFields) -> SignalResult:
     if news and len(news) > 0:
         top_news = news[0]
         headline = top_news.get("title", "Fraud report")
+        snippet = top_news.get("snippet", "")
         source = top_news.get("source", "News Alert")
         link = top_news.get("link") or search_url
+
+        combined_text = (headline + " " + snippet).lower()
+
+        # False positive check: Is the news about scams IMPERSONATING the company?
+        impersonation_markers = [
+            "warns", "warning", "targets", "impersonating", "impostor",
+            "fake jobs impersonate", "protect against", "scam alert targeting",
+            "beware of fake", "identity theft impersonating"
+        ]
+        if any(marker in combined_text for marker in impersonation_markers):
+            return SignalResult(
+                signal_key="news_fraud_mentions",
+                signal_name="News Fraud & Scam Mentions",
+                engine="google_news",
+                score_delta=-5,
+                status="pass",
+                finding=f"Media alerts describe fake scams impersonating '{company}', but no direct fraud complaints against the official entity.",
+                query_used=query,
+                evidence_url=link,
+                search_url=search_url,
+            )
+
         return SignalResult(
             signal_key="news_fraud_mentions",
             signal_name="News Fraud & Scam Mentions",
@@ -242,13 +409,14 @@ async def check_news_fraud(fields: ExtractedFields) -> SignalResult:
 
 
 async def check_domain_match(fields: ExtractedFields) -> SignalResult:
-    """Check 5: Lookalike domain & recruiter email verification."""
+    """Check 6: Lookalike domain & recruiter email verification."""
     claimed_domain = fields.claimed_domain
-    email = fields.contact_email
-    company = fields.company_name or "Company"
+    company = fields.company_name or ""
+    if not company or company == "Undisclosed Company":
+        company = "Company"
+
     query = f'"{company}" official website'
     params = {"q": query}
-
     search_url = f"https://www.google.com/search?q={urllib.parse.quote_plus(query)}"
 
     # 1. Critical red flag: Recruiter contacts candidate from a free webmail address
@@ -274,8 +442,8 @@ async def check_domain_match(fields: ExtractedFields) -> SignalResult:
     for item in organic:
         link = item.get("link", "")
         domain = _extract_domain_from_url(link)
-        # Exclude directories, social media, and Wikipedia
-        if domain and not any(skip in domain for skip in ["wikipedia.org", "linkedin.com", "glassdoor.com", "facebook.com", "bloomberg.com"]):
+        # Exclude directories, social media, job boards, and Wikipedia
+        if domain and not any(skip in domain for skip in JOB_PLATFORM_DOMAINS):
             official_domain = domain
             top_link = link
             break
@@ -310,17 +478,20 @@ async def check_domain_match(fields: ExtractedFields) -> SignalResult:
 
     # Lookalike or domain spoofing detection
     if official_domain and claimed_clean != official_domain:
-        return SignalResult(
-            signal_key="domain_match",
-            signal_name="Domain & Email Match",
-            engine="google",
-            score_delta=22,
-            status="fail",
-            finding=f"Lookalike Domain Alert: Posting references '{claimed_clean}', but official company website is '{official_domain}'.",
-            query_used=query,
-            evidence_url=top_link,
-            search_url=search_url,
-        )
+        # Check if claimed clean shares brand root or has hyphenated lookalike pattern
+        brand_stem = official_domain.split(".")[0]
+        if brand_stem in claimed_clean or len(claimed_clean.replace("-", "").replace(".", "")) > 3:
+            return SignalResult(
+                signal_key="domain_match",
+                signal_name="Domain & Email Match",
+                engine="google",
+                score_delta=22,
+                status="fail",
+                finding=f"Lookalike Domain Alert: Posting references '{claimed_clean}', but official company website is '{official_domain}'.",
+                query_used=query,
+                evidence_url=top_link,
+                search_url=search_url,
+            )
 
     return SignalResult(
         signal_key="domain_match",
@@ -336,11 +507,11 @@ async def check_domain_match(fields: ExtractedFields) -> SignalResult:
 
 
 async def check_recruiter_identity(fields: ExtractedFields) -> SignalResult:
-    """Check 6: Recruiter identity & company affiliation verification."""
+    """Check 7: Recruiter identity & company affiliation verification."""
     recruiter = fields.recruiter_name
-    company = fields.company_name or "Company"
+    company = fields.company_name or ""
 
-    if not recruiter:
+    if not recruiter or not company or company == "Undisclosed Company":
         return SignalResult(
             signal_key="recruiter_check",
             signal_name="Recruiter Identity Verification",
@@ -369,7 +540,7 @@ async def check_recruiter_identity(fields: ExtractedFields) -> SignalResult:
         snippet = item.get("snippet", "").lower()
         link = item.get("link", "")
         combined = title + " " + snippet
-        
+
         has_recruiter = all(part in combined for part in recruiter_parts)
         has_company = not company_parts or any(cp in combined for cp in company_parts)
 
@@ -399,9 +570,10 @@ async def check_recruiter_identity(fields: ExtractedFields) -> SignalResult:
     )
 
 
-async def evaluate_all_signals(fields: ExtractedFields) -> List[SignalResult]:
-    """Run all 6 SerpApi verification signals concurrently."""
+async def evaluate_all_signals(fields: ExtractedFields, raw_text: str = "") -> List[SignalResult]:
+    """Run all 7 SerpApi & text forensic verification signals concurrently."""
     tasks = [
+        check_in_text_threats(fields, raw_text),
         check_company_footprint(fields),
         check_linkedin_presence(fields),
         check_duplicate_posting(fields),

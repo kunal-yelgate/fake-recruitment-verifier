@@ -24,7 +24,12 @@ def extract_with_regex(raw_text: str) -> ExtractedFields:
 
     # 2. Claimed Domain
     claimed_domain: Optional[str] = None
-    if contact_email:
+    domain_header_match = re.search(
+        r"(?:Domain|Website|Web)\s*[:\-]\s*([a-zA-Z0-9-]+\.[a-zA-Z]{2,})", cleaned, re.IGNORECASE
+    )
+    if domain_header_match:
+        claimed_domain = domain_header_match.group(1).lower()
+    elif contact_email:
         domain_part = contact_email.split("@")[-1]
         claimed_domain = domain_part.lower()
     else:
@@ -61,6 +66,14 @@ def extract_with_regex(raw_text: str) -> ExtractedFields:
             parts = first_line.split(" at ")
             company_name = parts[-1].strip()
 
+    # Infer company name from domain if email is corporate and company is unknown
+    if not company_name and contact_email and claimed_domain:
+        free_domains = {"gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com", "proton.me", "protonmail.com"}
+        if claimed_domain not in free_domains:
+            name_part = claimed_domain.split(".")[0]
+            if len(name_part) >= 3:
+                company_name = name_part.capitalize()
+
     # Default company fallback if undetectable
     if not company_name:
         company_name = "Undisclosed Company"
@@ -69,7 +82,7 @@ def extract_with_regex(raw_text: str) -> ExtractedFields:
     recruiter_name: Optional[str] = None
     recruiter_patterns = [
         r"(?:Recruiter|Hiring Manager|Contact Person|HR Contact|Talent Acquisition|From)\s*[:\-]\s*([A-Z][a-z]+ [A-Z][a-z]+)",
-        r"(?:My name is|I am|Reach out to)\s+([A-Z][a-z]+ [A-Z][a-z]+)",
+        r"(?:My name is|I am|Reach out to|Contact Mr\.|Contact Ms\.)\s+([A-Z][a-z]+ [A-Z][a-z]+)",
     ]
     for pattern in recruiter_patterns:
         m = re.search(pattern, cleaned, re.IGNORECASE)
@@ -89,7 +102,7 @@ def extract_with_regex(raw_text: str) -> ExtractedFields:
             job_title = m.group(1).strip()
             break
 
-    # 6. Distinctive Phrase (10-18 words from body to fingerprint duplicate spam)
+    # 6. Distinctive Phrase (8-12 words from body for fingerprinting)
     distinctive_phrase = _extract_distinctive_phrase(lines)
 
     return ExtractedFields(
@@ -110,17 +123,17 @@ def _extract_distinctive_phrase(lines: list[str]) -> str:
     for line in lines[1:]:
         clean_line = line.strip()
         words = clean_line.split()
-        if 8 <= len(words) <= 22:
+        if 6 <= len(words) <= 20:
             lower = clean_line.lower()
             if not any(bw in lower for bw in boilerplate_words) and not lower.startswith("http"):
                 # Clean punctuation for exact phrase search
-                return " ".join(words[:14])
+                return " ".join(words[:10])
 
     # Fallback to first multi-word line
     for line in lines:
         words = line.strip().split()
         if len(words) >= 6:
-            return " ".join(words[:12])
+            return " ".join(words[:10])
 
     return "Job opportunity remote position hiring immediately"
 
