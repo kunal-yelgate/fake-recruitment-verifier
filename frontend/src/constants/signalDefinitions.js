@@ -1,6 +1,14 @@
-import { MapPin, Linkedin, Copy, Newspaper, Globe, UserCheck } from "lucide-react";
+import { MapPin, Linkedin, Copy, Newspaper, Globe, UserCheck, ShieldAlert } from "lucide-react";
 
 export const SIGNAL_METADATA = {
+  text_threat_signals: {
+    label: "In-Posting Threat Patterns",
+    engine: "NLP & Forensic Scanner",
+    icon: ShieldAlert,
+    category: "Forensic Intel",
+    color: "red",
+    description: "Inspects raw posting text for check deposit traps, Telegram interview redirects, equipment fees, or unrealistic pay."
+  },
   company_footprint: {
     label: "Physical Footprint",
     engine: "Google Maps",
