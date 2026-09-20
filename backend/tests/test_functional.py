@@ -13,20 +13,20 @@ def test_functional_scam_flow():
     """End-to-end test on the realistic scam job posting."""
     async def _run():
         scam_text = (FIXTURES_DIR / "scam_posting.txt").read_text(encoding="utf-8")
-        
+
         # 1. Extraction
         fields = await extract_fields(scam_text)
         assert fields.company_name is not None
         assert "Apex" in fields.company_name
         assert fields.contact_email == "marcus.vance.careers@gmail.com"
-        
+
         # 2. Signals
-        signals = await evaluate_all_signals(fields)
-        assert len(signals) == 6
-        
+        signals = await evaluate_all_signals(fields, scam_text)
+        assert len(signals) == 7
+
         # 3. Scoring
         score, verdict, badge, summary = calculate_risk_score(signals)
-        
+
         # Verification: Must be flagged as scam (>= 65)
         assert score >= 65, f"Expected high risk score for scam posting, got {score}"
         assert verdict == "Likely Scam"
@@ -41,24 +41,24 @@ def test_functional_legit_flow():
     """End-to-end test on the legitimate Stripe job posting."""
     async def _run():
         legit_text = (FIXTURES_DIR / "legit_posting.txt").read_text(encoding="utf-8")
-        
+
         # 1. Extraction
         fields = await extract_fields(legit_text)
         assert fields.company_name is not None
         assert "Stripe" in fields.company_name
         assert fields.contact_email == "talent@stripe.com"
-        
+
         # 2. Signals
-        signals = await evaluate_all_signals(fields)
-        assert len(signals) == 6
+        signals = await evaluate_all_signals(fields, legit_text)
+        assert len(signals) == 7
         for s in signals:
             print(f"  SIGNAL {s.signal_key}: delta={s.score_delta}, status={s.status}, finding={s.finding}")
-        
+
         # 3. Scoring
         score, verdict, badge, summary = calculate_risk_score(signals)
         print(f"\n[LEGIT TEST] Score: {score}/100 | Verdict: {verdict} | Badge: {badge}")
         print(f"Summary: {summary}")
-        
+
         # Verification: Must be classified as legitimate (< 35)
         assert score < 35, f"Expected low risk score for legitimate posting, got {score}"
 
@@ -92,7 +92,7 @@ def test_fastapi_check_endpoint():
             assert "risk_score" in data
             assert data["risk_score"] >= 65
             assert data["verdict"] == "Likely Scam"
-            assert len(data["signals"]) == 6
+            assert len(data["signals"]) == 7
             assert data["extracted_fields"]["company_name"] is not None
             print(f"\n[API /check TEST] Response received in {data['execution_time_seconds']}s")
             print(f"Risk Score: {data['risk_score']}/100 | Verdict: {data['verdict']}")

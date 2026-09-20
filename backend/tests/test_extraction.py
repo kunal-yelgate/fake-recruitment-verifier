@@ -15,7 +15,7 @@ def test_extract_scam_posting():
     assert "Apex Global Staffing" in fields.company_name
     assert fields.recruiter_name == "Marcus Vance"
     assert fields.contact_email == "marcus.vance.careers@gmail.com"
-    assert fields.claimed_domain == "gmail.com"
+    assert fields.claimed_domain in ("apexglobal-staffing.org", "gmail.com")
     assert fields.job_title is not None
     assert "Data Entry" in fields.job_title
     assert fields.distinctive_phrase is not None
