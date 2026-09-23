@@ -1,4 +1,4 @@
-# TrueRecruit AI — Job Scam & Fake Recruiter Verifier
+Job Scam & Fake Recruiter Verifier
 
 <div align="center">
 
