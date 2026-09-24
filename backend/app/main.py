@@ -12,7 +12,21 @@ from app.cache import cache
 
 app = FastAPI(
     title="Fake Recruiter Verifier API",
-    description="Live search verification against SerpApi to corroborate job postings and detect recruitment scams.",
+    description="""
+## What this API does
+
+The Fake Recruiter Verifier analyzes a job posting or recruiter message and returns a transparent risk assessment. It uses the text supplied in `raw_text`, extracts useful entities, checks public signals, and combines the findings into a 0-100 risk score.
+
+## Analysis workflow
+
+1. **Extract details** - identifies the company, recruiter, email/domain, job title, and distinctive phrases.
+2. **Scan the message** - checks for payment requests, check-deposit traps, crypto or gift-card requests, suspicious chat redirects, and unrealistic compensation.
+3. **Verify public signals** - runs six concurrent checks for company footprint, LinkedIn presence, duplicate postings, fraud/news mentions, domain/email integrity, and recruiter affiliation.
+4. **Calculate the result** - applies transparent weighted signal deltas to a base score of 50 and clamps the result to 0-100.
+5. **Return evidence** - provides the verdict, extracted fields, signal findings, search URLs, and a safety summary.
+
+The API does not make a legal determination or guarantee that a recruiter is safe. A low-risk result means the available public evidence is corroborating; users should still protect personal and financial information.
+""",
     version="1.0.0",
 )
 
@@ -52,11 +66,14 @@ async def cache_stats():
 @app.post("/check", response_model=CheckResponse)
 async def check_posting(request: CheckRequest):
     """
-    Main verification endpoint.
-    1. Extracts structured fields (company, recruiter, domain, distinctive phrase).
-    2. Runs 6 parallel live SerpApi search queries (Maps, LinkedIn, Duplicates, News, Domain, Recruiter).
-    3. Calculates transparent weighted risk score clamped from 0 to 100.
-    4. Returns actionable verdict with clickable evidence links.
+    Analyze one user-provided job posting or recruiter message.
+
+    The endpoint extracts entities, checks in-text scam patterns, then runs six
+    public-signal checks in parallel: company footprint, LinkedIn presence,
+    duplicate posting fingerprint, fraud/news mentions, domain and email
+    integrity, and recruiter affiliation. It returns the weighted 0-100 risk
+    score, safety verdict, extracted details, individual findings, and evidence
+    links used by the analysis.
     """
     start_time = time.time()
 
