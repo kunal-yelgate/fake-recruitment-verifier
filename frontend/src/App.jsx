@@ -12,8 +12,10 @@ import { ScanHistoryDrawer } from "./components/features/History/ScanHistoryDraw
 import { useVerifier } from "./hooks/useVerifier";
 import { useScanHistory } from "./hooks/useScanHistory";
 import { getBackendStatus } from "./services/api";
+import { LandingPage } from "./components/LandingPage";
 
 export default function App() {
+  const [showLanding, setShowLanding] = useState(true);
   const [isDark, setIsDark] = useState(() => {
     const saved = localStorage.getItem("theme");
     return saved ? saved === "dark" : true;
@@ -25,7 +27,13 @@ export default function App() {
   const [backendHealth, setBackendHealth] = useState({ online: true });
 
   const resultsRef = useRef(null);
-  const { history, addScan, removeScan, clearHistory, count: historyCount } = useScanHistory();
+  const {
+    history,
+    addScan,
+    removeScan,
+    clearHistory,
+    count: historyCount,
+  } = useScanHistory();
 
   // Initialize verifier hook
   const {
@@ -39,7 +47,10 @@ export default function App() {
   } = useVerifier((data, rawText) => {
     addScan(data, rawText);
     setTimeout(() => {
-      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      resultsRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     }, 150);
   });
 
@@ -68,15 +79,28 @@ export default function App() {
     setText(historyItem.rawText || "");
     setResults(historyItem.result);
     setTimeout(() => {
-      resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      resultsRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     }, 150);
   };
 
   const isPass = results ? results.risk_score < 35 : false;
   const isFail = results ? results.risk_score >= 65 : false;
 
+  if (showLanding) {
+    return (
+      <LandingPage
+        isDark={isDark}
+        onToggleTheme={() => setIsDark((prev) => !prev)}
+        onEnter={() => setShowLanding(false)}
+      />
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 selection:bg-indigo-500 selection:text-white transition-colors duration-200 flex flex-col justify-between">
+    <div className="min-h-screen bg-[#f3f0ee] text-[#141413] selection:bg-[#cf4500] selection:text-white transition-colors duration-200 flex flex-col justify-between dark:bg-[#141413] dark:text-[#f3f0ee]">
       {/* Top Navigation Bar */}
       <Navbar
         isDark={isDark}

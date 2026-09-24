@@ -2,12 +2,12 @@ import { useState, useCallback, useRef } from "react";
 import { verifyPosting } from "../services/api";
 
 const SCAN_STEPS = [
-  { id: "nlp", label: "Extracting Entities & Keywords", duration: 350 },
-  { id: "maps", label: "Probing Google Maps Physical Footprint", duration: 450 },
-  { id: "linkedin", label: "Verifying LinkedIn Corporate Identity", duration: 450 },
-  { id: "duplicates", label: "Scanning Global Duplicate Web Fingerprints", duration: 500 },
-  { id: "news", label: "Checking Google News Fraud & Lawsuit Intel", duration: 400 },
-  { id: "domain", label: "Analyzing Lookalike Domains & Recruiter Credentials", duration: 450 },
+  { id: "message", label: "Reading the message for key details", duration: 350 },
+  { id: "company", label: "Checking the company identity", duration: 450 },
+  { id: "recruiter", label: "Checking recruiter and contact details", duration: 450 },
+  { id: "patterns", label: "Looking for copied or known scam patterns", duration: 500 },
+  { id: "warnings", label: "Checking public warnings and risk signals", duration: 400 },
+  { id: "verdict", label: "Calculating the risk and safety result", duration: 450 },
 ];
 
 export function useVerifier(onSuccess) {

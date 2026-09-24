@@ -1,8 +1,13 @@
 import React, { useRef } from "react";
-import { AlertTriangle, ArrowRight, RotateCcw, UploadCloud, Search, ShieldCheck } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  RotateCcw,
+  UploadCloud,
+  Search,
+} from "lucide-react";
 import { Button } from "../../ui/Button";
 import { Card } from "../../ui/Card";
-import { PresetSelector } from "./PresetSelector";
 import { ScanProgressStepper } from "./ScanProgressStepper";
 
 export function PostingInput({
@@ -32,22 +37,22 @@ export function PostingInput({
   };
 
   return (
-    <Card className="space-y-6">
+    <Card className="space-y-6 rounded-[32px] border-[#d1cdc7]/70 p-5 shadow-[0_24px_48px_rgba(20,20,19,0.06)] sm:p-7 dark:border-white/10">
       {/* Header title */}
       <div>
-        <div className="flex items-center gap-2 mb-1">
-          <Search className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-          <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight">
-            Job Posting & Recruiter Forensic Analysis
-          </h2>
+        <div className="mb-2 flex items-center gap-2">
+          <Search className="h-5 w-5 text-[#cf4500] dark:text-[#f37338]" />
+          <span className="text-xs font-bold uppercase tracking-[0.18em] text-[#cf4500] dark:text-[#f37338]">
+            Recruiter check
+          </span>
         </div>
-        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-          Paste the job description, recruiter outreach email, or Telegram/LinkedIn message. Our OSINT engine correlates company footprints, lookalike domains, and duplicate scam fingerprints via live SerpApi probes.
+        <h2 className="text-2xl font-medium tracking-tight text-[#141413] dark:text-[#f3f0ee] sm:text-3xl">
+          Analyze the message you received.
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-[#696969] dark:text-[#d1cdc7]">
+          Results are based only on the information you provide. We flag identity gaps, suspicious requests, and critical scam signals.
         </p>
       </div>
-
-      {/* Preset Scenarios */}
-      <PresetSelector onSelectPreset={(val) => setText(val)} activeText={text} />
 
       {/* Textarea Input Container */}
       <div className="space-y-2">
@@ -57,8 +62,8 @@ export function PostingInput({
             value={text}
             onChange={(e) => setText(e.target.value)}
             disabled={isLoading}
-            placeholder="Paste raw job description, recruiter email, or outreach message here... (Include company name, email address, compensation, and requirements for maximum forensic depth)"
-            className="w-full rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-300 dark:border-slate-800/80 p-4 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 text-xs sm:text-sm leading-relaxed transition font-mono resize-y min-h-[160px] shadow-inner"
+            placeholder="Paste the job post, recruiter email, or direct message you want analyzed..."
+            className="min-h-[180px] w-full resize-y rounded-[20px] border border-[#d1cdc7] bg-[#fcfbfa] p-4 font-mono text-xs leading-relaxed text-[#141413] shadow-inner transition placeholder:text-[#96918a] focus:border-[#141413] focus:outline-none focus:ring-2 focus:ring-[#141413]/10 dark:border-white/15 dark:bg-[#141413]/70 dark:text-[#f3f0ee] dark:placeholder:text-[#696969] dark:focus:border-[#f3f0ee] sm:text-sm"
           />
 
           {/* Hidden File Input for drag/upload */}
@@ -74,22 +79,25 @@ export function PostingInput({
         {/* Live Scan Step Stepper if loading */}
         {isLoading && (
           <div className="pt-2">
-            <ScanProgressStepper steps={scanSteps} activeIndex={activeStepIndex} />
+            <ScanProgressStepper
+              steps={scanSteps}
+              activeIndex={activeStepIndex}
+            />
           </div>
         )}
 
         {/* Error Alert */}
         {error && (
-          <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2.5 animate-in fade-in duration-200">
-            <AlertTriangle className="w-4 h-4 flex-shrink-0 text-rose-500 dark:text-rose-400" />
+          <div className="flex items-center gap-2.5 rounded-[20px] border border-[#cf4500]/25 bg-[#cf4500]/10 p-3.5 text-xs text-[#9a3a0a] animate-in fade-in duration-200 dark:text-[#f37338]">
+            <AlertTriangle className="h-4 w-4 flex-shrink-0 text-[#cf4500] dark:text-[#f37338]" />
             <span className="font-medium">{error}</span>
           </div>
         )}
       </div>
 
       {/* Action Footer */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-3 border-t border-slate-200 dark:border-slate-800/80">
-        <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 font-mono order-2 sm:order-1">
+      <div className="flex flex-col items-center justify-between gap-4 border-t border-[#d1cdc7]/70 pt-4 sm:flex-row dark:border-white/10">
+        <div className="order-2 flex items-center gap-3 font-mono text-xs text-[#696969] dark:text-[#d1cdc7] sm:order-1">
           <span>{charCount.toLocaleString()} chars</span>
           <span>•</span>
           <span>{wordCount.toLocaleString()} words</span>
@@ -100,7 +108,7 @@ export function PostingInput({
                 type="button"
                 onClick={() => setText("")}
                 disabled={isLoading}
-                className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer transition-colors"
+                className="inline-flex cursor-pointer items-center gap-1 text-[#696969] transition-colors hover:text-[#141413] dark:hover:text-white"
               >
                 <RotateCcw className="w-3 h-3" />
                 Clear
@@ -109,7 +117,7 @@ export function PostingInput({
           )}
         </div>
 
-        <div className="flex items-center gap-2.5 w-full sm:w-auto order-1 sm:order-2">
+        <div className="order-1 flex w-full items-center gap-2.5 sm:order-2 sm:w-auto">
           <Button
             type="button"
             variant="outline"
@@ -130,7 +138,7 @@ export function PostingInput({
             onClick={onVerify}
             isLoading={isLoading}
             disabled={isLoading || charCount < 10}
-            className="w-full sm:w-auto shadow-lg shadow-indigo-600/25"
+            className="w-full sm:w-auto"
           >
             <span>Run OSINT Verification</span>
             <ArrowRight className="w-4 h-4 ml-1" />

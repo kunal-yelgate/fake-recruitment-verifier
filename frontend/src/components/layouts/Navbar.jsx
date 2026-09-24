@@ -1,5 +1,12 @@
 import React from "react";
-import { ShieldCheck, Sun, Moon, History, Activity, Sparkles, BookOpen } from "lucide-react";
+import {
+  ShieldCheck,
+  Sun,
+  Moon,
+  History,
+  Activity,
+  BookOpen,
+} from "lucide-react";
 import { Button } from "../ui/Button";
 
 export function Navbar({
@@ -11,37 +18,37 @@ export function Navbar({
   isMockMode = false,
 }) {
   return (
-    <header className="sticky top-0 z-40 w-full backdrop-blur-xl bg-white/80 dark:bg-slate-950/80 border-b border-slate-200/80 dark:border-slate-800/80 transition-colors">
+    <header className="sticky top-0 z-40 w-full border-b border-[#d1cdc7]/70 bg-[#f3f0ee]/90 backdrop-blur-xl transition-colors dark:border-white/10 dark:bg-[#141413]/90">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
         {/* Brand Logo & Name */}
         <div className="flex items-center gap-3">
-          <div className="relative p-2 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 text-white shadow-lg shadow-indigo-500/25">
+          <div className="relative rounded-full bg-[#141413] p-2 text-[#f3f0ee] shadow-[0_4px_24px_rgba(20,20,19,0.12)] dark:bg-[#f3f0ee] dark:text-[#141413]">
             <ShieldCheck className="w-5 h-5 text-white" />
-            <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-white dark:border-slate-950 animate-pulse" />
+            <div className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-[#f3f0ee] bg-[#f37338] dark:border-[#141413] animate-pulse" />
           </div>
 
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-base sm:text-lg font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-violet-600 to-cyan-600 dark:from-indigo-400 dark:via-violet-400 dark:to-cyan-400">
-                TrueRecruit AI
+              <span className="text-base font-medium tracking-tight text-[#141413] dark:text-[#f3f0ee] sm:text-lg">
               </span>
-              <span className="hidden sm:inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+              <span className="hidden rounded-full border border-[#cf4500]/25 bg-[#cf4500]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#cf4500] dark:text-[#f37338] sm:inline-block">
                 OSINT Radar
               </span>
             </div>
-            <p className="hidden md:block text-xs text-slate-500 dark:text-slate-400">
-              Live Search Verification Backed by SerpApi Probes
-            </p>
           </div>
         </div>
 
         {/* Action Controls */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Engine Status Indicator */}
-          <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400">
+          <div className="hidden items-center gap-1.5 rounded-full border border-[#d1cdc7] bg-white/50 px-3 py-1.5 text-xs font-medium text-[#696969] dark:border-white/10 dark:bg-white/5 dark:text-[#d1cdc7] lg:flex">
             <Activity className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
             <span>
-              {isMockMode ? "Demo Mode (Simulated Signals)" : "Live SerpApi Engine Active"}
+              {isMockMode
+                ? "Demo mode"
+                : isBackendConnected
+                  ? "Engine ready"
+                  : "Engine offline"}
             </span>
           </div>
 
@@ -56,7 +63,7 @@ export function Navbar({
             <History className="w-4 h-4 text-slate-600 dark:text-slate-400" />
             <span className="hidden sm:inline">History</span>
             {historyCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-indigo-600 text-white">
+              <span className="ml-1 rounded-full bg-[#cf4500] px-1.5 py-0.2 text-[10px] font-bold text-white">
                 {historyCount}
               </span>
             )}
@@ -67,7 +74,7 @@ export function Navbar({
             href="http://127.0.0.1:8000/docs"
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-800 transition-colors"
+            className="hidden items-center gap-1 rounded-full border border-[#d1cdc7] px-3 py-1.5 text-xs font-medium text-[#696969] transition-colors hover:bg-white hover:text-[#141413] dark:border-white/10 dark:text-[#d1cdc7] dark:hover:bg-white/10 dark:hover:text-white sm:inline-flex"
           >
             <BookOpen className="w-3.5 h-3.5" />
             <span>API Docs</span>
@@ -77,7 +84,7 @@ export function Navbar({
           <button
             type="button"
             onClick={onToggleTheme}
-            className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+            className="cursor-pointer rounded-full border border-[#141413] bg-transparent p-2 text-[#141413] transition-colors hover:bg-white dark:border-[#f3f0ee] dark:text-[#f3f0ee] dark:hover:bg-white/10"
             aria-label="Toggle theme"
           >
             {isDark ? (
