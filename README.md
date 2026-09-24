@@ -24,9 +24,10 @@ Job Scam & Fake Recruiter Verifier
 
 ## 💡 Why This is Different
 
-Most job-scam checkers (LoopCV, JobScamScore, JobMeter) only classify the *internal text* of a posting against known scam keywords. That misses the strongest scam signature: **whether the world outside the posting corroborates it.**
+Most job-scam checkers (LoopCV, JobScamScore, JobMeter) only classify the _internal text_ of a posting against known scam keywords. That misses the strongest scam signature: **whether the world outside the posting corroborates it.**
 
 TrueRecruit AI cross-checks the posting against live multi-engine search data:
+
 - 🗺️ **Physical Footprint**: Does the company have a registered Google Maps listing or headquarters address?
 - 👔 **Corporate Authority**: Does it have an active, verified LinkedIn company presence?
 - 🌐 **Global Syndication Fingerprint**: Is the exact phrase syndicated across pastebins and spam forums?
@@ -42,7 +43,7 @@ Every verdict is a **transparent, weighted sum of live OSINT probes** — not an
 
 - **Cyber Threat Radar UI**: Radial animated risk gauge (0–100), trust tier badges, and live telemetry vector distribution.
 - **Parallel OSINT Probe Visualizer**: Real-time multi-step animation tracking all 6 engines during analysis.
-- **Searchable Evidence Matrix**: Filter by status (*Threats*, *Verified*, *All*), search findings, and inspect raw query parameters.
+- **Searchable Evidence Matrix**: Filter by status (_Threats_, _Verified_, _All_), search findings, and inspect raw query parameters.
 - **Extracted Entity Credentials**: Automatic NLP extraction for Company, Role, Recruiter, Claimed Domain, and Unique Phrases.
 - **Local Scan History**: Persistent `localStorage` drawer for 1-click scan reloads without re-querying.
 - **Forensic Report Exporter**: 1-click export to formatted **Markdown (.md)** or **JSON (.json)** with instant download.
@@ -52,14 +53,14 @@ Every verdict is a **transparent, weighted sum of live OSINT probes** — not an
 
 ## 🔍 SerpApi OSINT Engines
 
-| OSINT Signal | Engine | Primary Objective | Scoring Impact |
-|---|---|---|---|
-| **Company Footprint** | `google_maps` | Verifies physical headquarters & place existence | `-15` (Pass) / `+10` (Missing) |
-| **LinkedIn Presence** | `google` (`site:linkedin.com`) | Confirms active corporate identity & headcount | `-15` (Pass) / `+12` (Missing) |
-| **Duplicate Posting** | `google` (Exact Match) | Detects cross-forum automated spam syndication | `+18` (Spam) / `-8` (Unique) |
-| **News Fraud Mentions** | `google_news` | Discovers FTC/BBB alerts and lawsuit complaints | `+20` (Alert) / `-5` (Clean) |
-| **Domain & Email Match** | `google` | Flags `@gmail/@yahoo` recruiters & lookalike domains | `+25` (Mismatch) / `-10` (Match) |
-| **Recruiter Identity** | `google` | Validates recruiter professional record & company link | `-12` (Affiliated) / `+10` (Unverified) |
+| OSINT Signal             | Engine                         | Primary Objective                                      | Scoring Impact                          |
+| ------------------------ | ------------------------------ | ------------------------------------------------------ | --------------------------------------- |
+| **Company Footprint**    | `google_maps`                  | Verifies physical headquarters & place existence       | `-15` (Pass) / `+10` (Missing)          |
+| **LinkedIn Presence**    | `google` (`site:linkedin.com`) | Confirms active corporate identity & headcount         | `-15` (Pass) / `+12` (Missing)          |
+| **Duplicate Posting**    | `google` (Exact Match)         | Detects cross-forum automated spam syndication         | `+18` (Spam) / `-8` (Unique)            |
+| **News Fraud Mentions**  | `google_news`                  | Discovers FTC/BBB alerts and lawsuit complaints        | `+20` (Alert) / `-5` (Clean)            |
+| **Domain & Email Match** | `google`                       | Flags `@gmail/@yahoo` recruiters & lookalike domains   | `+25` (Mismatch) / `-10` (Match)        |
+| **Recruiter Identity**   | `google`                       | Validates recruiter professional record & company link | `-12` (Affiliated) / `+10` (Unverified) |
 
 ---
 
@@ -122,9 +123,10 @@ fake-recruiter-verifier/
 ## 🚀 Quick Start
 
 ### 1. Prerequisites
+
 - **Python 3.10+**
 - **Node.js 18+** & `npm`
-- *(Optional)* [SerpApi API Key](https://serpapi.com) (100 free searches/mo). When omitted, the app operates in **Demo Simulation Mode**.
+- _(Optional)_ [SerpApi API Key](https://serpapi.com) (100 free searches/mo). When omitted, the app operates in **Demo Simulation Mode**.
 
 ### 2. Configure Environment
 
@@ -133,6 +135,7 @@ cp .env.example .env
 ```
 
 Edit `.env`:
+
 ```env
 SERPAPI_KEY=your_actual_serpapi_key_here
 ```
@@ -172,6 +175,7 @@ The frontend is fully configured for seamless, zero-config deployment to [Vercel
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/kunal-yelgate/fake-recruitment-verifier)
 
 ### Deployment Steps:
+
 1. **Import Repository**: In your Vercel dashboard, click **Add New Project** and select this repository.
 2. **Build Settings**: Vercel automatically detects the included `vercel.json` and Vite configuration.
    - **Framework Preset:** Vite
@@ -180,6 +184,9 @@ The frontend is fully configured for seamless, zero-config deployment to [Vercel
    - **Output Directory:** `frontend/dist`
 3. **Environment Variables**:
    - Add `VITE_API_BASE_URL` with your deployed backend URL (e.g. `https://your-backend-api.onrender.com` or Railway/Fly.io URL).
+
+- For `https://truerecruit-test.netlify.app`, ensure the backend CORS allowlist includes that exact origin.
+
 4. Click **Deploy**!
 
 ---
@@ -211,9 +218,11 @@ $$\text{Final Risk Score} = \text{clamp}\left(50 + \sum \Delta_{\text{signals}},
 ## 📡 API Reference
 
 ### `POST /check`
+
 Analyze raw job posting text and run parallel OSINT probes.
 
 **Request:**
+
 ```json
 {
   "raw_text": "Job Title: Remote Data Entry Clerk\nCompany: Apex Global Staffing\nSalary: $50/hr\nApply: marcus.vance.careers@gmail.com"
@@ -221,6 +230,7 @@ Analyze raw job posting text and run parallel OSINT probes.
 ```
 
 **Response:**
+
 ```json
 {
   "risk_score": 77,
@@ -255,9 +265,11 @@ Analyze raw job posting text and run parallel OSINT probes.
 ```
 
 ### `GET /health`
+
 Returns service status and timestamp.
 
 ### `GET /cache/stats`
+
 Returns SQLite 24h query cache statistics.
 
 ---

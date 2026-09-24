@@ -8,6 +8,7 @@ import {
   BookOpen,
 } from "lucide-react";
 import { Button } from "../ui/Button";
+import { API_BASE_URL } from "../../services/api";
 
 export function Navbar({
   isDark,
@@ -30,6 +31,7 @@ export function Navbar({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-base font-medium tracking-tight text-[#141413] dark:text-[#f3f0ee] sm:text-lg">
+                TrueRecruit
               </span>
               <span className="hidden rounded-full border border-[#cf4500]/25 bg-[#cf4500]/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#cf4500] dark:text-[#f37338] sm:inline-block">
                 OSINT Radar
@@ -70,15 +72,17 @@ export function Navbar({
           </Button>
 
           {/* Swagger API Docs */}
-          <a
-            href="http://127.0.0.1:8000/docs"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hidden items-center gap-1 rounded-full border border-[#d1cdc7] px-3 py-1.5 text-xs font-medium text-[#696969] transition-colors hover:bg-white hover:text-[#141413] dark:border-white/10 dark:text-[#d1cdc7] dark:hover:bg-white/10 dark:hover:text-white sm:inline-flex"
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>API Docs</span>
-          </a>
+          {API_BASE_URL && (
+            <a
+              href={`${API_BASE_URL}/docs`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden items-center gap-1 rounded-full border border-[#d1cdc7] px-3 py-1.5 text-xs font-medium text-[#696969] transition-colors hover:bg-white hover:text-[#141413] dark:border-white/10 dark:text-[#d1cdc7] dark:hover:bg-white/10 dark:hover:text-white sm:inline-flex"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>API Docs</span>
+            </a>
+          )}
 
           {/* Theme Toggle Button */}
           <button

@@ -1,6 +1,6 @@
 const envApiUrl = import.meta.env.VITE_API_BASE_URL;
 
-const API_BASE_URL =
+export const API_BASE_URL =
   envApiUrl && envApiUrl.trim() !== ""
     ? envApiUrl.replace(/\/+$/, "")
     : typeof window !== "undefined" &&
