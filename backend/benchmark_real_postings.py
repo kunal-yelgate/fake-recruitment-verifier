@@ -244,7 +244,7 @@ def main() -> int:
         return 1
 
     print(json.dumps(report["metrics"], indent=2))
-    print(f"Live searches: {report['search_counts']['live']}")
+    print(f"Live searches: {report['search_counts']['live_requests']}")
     if args.output:
         print(f"Report saved to: {args.output}")
     return 0

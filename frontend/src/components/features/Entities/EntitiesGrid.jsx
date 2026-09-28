@@ -1,5 +1,14 @@
 import React from "react";
-import { Building2, Briefcase, UserCheck, Globe, Quote, Cpu } from "lucide-react";
+import {
+  Building2,
+  Briefcase,
+  UserCheck,
+  Globe,
+  Quote,
+  Cpu,
+  DollarSign,
+  CreditCard,
+} from "lucide-react";
 import { Card } from "../../ui/Card";
 import { DomainMismatchAlert } from "./DomainMismatchAlert";
 
@@ -31,6 +40,12 @@ export function EntitiesGrid({ extractedFields }) {
       icon: Globe,
       sub: extractedFields.claimed_domain ? `Domain: ${extractedFields.claimed_domain}` : "No domain",
     },
+    {
+      label: "Salary / Compensation",
+      value: extractedFields.salary_range || "Not stated",
+      icon: DollarSign,
+      sub: "Copied from the supplied posting",
+    },
   ];
 
   return (
@@ -47,7 +62,7 @@ export function EntitiesGrid({ extractedFields }) {
         </span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         {entities.map((item, idx) => {
           const Icon = item.icon;
           return (
@@ -74,6 +89,20 @@ export function EntitiesGrid({ extractedFields }) {
           );
         })}
       </div>
+
+      {extractedFields.payment_requests?.length > 0 && (
+        <div className="p-3.5 rounded-xl bg-rose-50/80 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/60 text-xs flex items-start gap-2.5">
+          <CreditCard className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <span className="font-bold text-rose-700 dark:text-rose-300">
+              Payment requests found:{" "}
+            </span>
+            <span className="text-rose-700/80 dark:text-rose-200/80">
+              {extractedFields.payment_requests.join(" • ")}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Free webmail alert if present */}
       <DomainMismatchAlert

@@ -137,6 +137,8 @@ export default function App() {
               verdictBadge={results.verdict_badge}
               summary={results.summary}
               groqDecision={results.groq_decision}
+              claimAudit={results.claim_audit}
+              linkedinReferralLeads={results.linkedin_referral_leads}
               isMock={results.is_mock}
               hasSearchError={results.signals.some((signal) => signal.data_source === "error")}
               executionTime={results.execution_time_seconds}
