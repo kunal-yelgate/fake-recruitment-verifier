@@ -58,12 +58,27 @@ def test_extract_website_domain_separately_from_free_email():
     assert fields.claimed_domain == "acmelabs.example"
 
 
+def test_regex_extracts_salary_and_payment_requests():
+    posting = (
+        "Acme Labs is hiring a coordinator. Salary: $25 - $30 per hour. "
+        "Applicants must pay a $75 background check fee and buy gift cards."
+    )
+
+    fields = extract_with_regex(posting)
+
+    assert fields.salary_range == "$25 - $30 per hour"
+    assert fields.payment_requests
+    assert any("background check fee" in request.lower() for request in fields.payment_requests)
+    assert any("gift cards" in request.lower() for request in fields.payment_requests)
+
+
 @pytest.mark.asyncio
 async def test_groq_extraction_uses_only_text_grounded_values(monkeypatch):
     posting = (
         "Senior Data Engineer\nCompany: Acme Labs\nRecruiter: Jamie Smith\n"
         "Email: jamie@acme.example\nWebsite: acme.example\n"
-        "We are hiring a Senior Data Engineer to build reliable systems."
+        "We are hiring a Senior Data Engineer to build reliable systems. "
+        "Salary: $140,000 - $165,000 per year. Applicants must pay a processing fee."
     )
     response_data = {
         "company_name": "Acme Labs",
@@ -71,6 +86,8 @@ async def test_groq_extraction_uses_only_text_grounded_values(monkeypatch):
         "claimed_domain": "acme.example",
         "contact_email": "jamie@acme.example",
         "job_title": "Senior Data Engineer",
+        "salary_range": "$140,000 - $165,000 per year",
+        "payment_requests": ["Applicants must pay a processing fee"],
         "distinctive_phrase": "We are hiring a Senior Data Engineer to build reliable systems.",
     }
 
@@ -104,6 +121,8 @@ async def test_groq_extraction_uses_only_text_grounded_values(monkeypatch):
     assert fields.company_name == "Acme Labs"
     assert fields.recruiter_name != "Imaginary Person"
     assert fields.contact_email == "jamie@acme.example"
+    assert fields.salary_range == "$140,000 - $165,000 per year"
+    assert fields.payment_requests == ["Applicants must pay a processing fee"]
 
 
 def test_llm_claimed_domain_does_not_replace_website_with_email_provider():

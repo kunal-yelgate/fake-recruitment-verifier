@@ -21,7 +21,12 @@ class ExtractedFields(BaseModel):
     contact_email: Optional[str] = Field(None, description="Extracted recruiter email address")
     distinctive_phrase: Optional[str] = Field(None, description="Unique sentence used for duplicate fingerprinting")
     job_title: Optional[str] = Field(None, description="Target job title or role")
-    extraction_method: str = Field("regex", description="'llm' (Anthropic) or 'regex'")
+    salary_range: Optional[str] = Field(None, description="Salary or compensation range stated in the posting")
+    payment_requests: List[str] = Field(
+        default_factory=list,
+        description="Exact payment, deposit, gift-card, crypto, or fee requests found in the posting",
+    )
+    extraction_method: str = Field("regex", description="'groq', 'llm' (Anthropic), or 'regex'")
 
 
 class SignalResult(BaseModel):

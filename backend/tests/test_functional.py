@@ -1,4 +1,4 @@
-"""Functional end-to-end verification test for fake-recruiter-verifier."""
+"""Functional end-to-end verification test for fake-recruitment-verifier."""
 
 import asyncio
 from pathlib import Path

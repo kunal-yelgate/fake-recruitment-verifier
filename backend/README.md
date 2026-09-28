@@ -1,4 +1,4 @@
-# Fake Recruiter Verifier - Backend Service
+# Fake Recruitment Verifier - Backend Service
 
 FastAPI-powered asynchronous verification service backed by SerpApi live search intelligence and SQLite caching.
 
@@ -23,7 +23,7 @@ uvicorn app.main:app --reload --port 8000
 
 Send the job posting or recruiter message to `POST /check` as `raw_text`. The service analyzes only the text provided in that request.
 
-1. **Extracts details** such as company, recruiter, email/domain, job title, and distinctive phrases.
+1. **Extracts structured details** such as company, recruiter, email/domain, job title, salary, payment requests, and distinctive phrases. Groq JSON extraction is used when configured; grounded regex extraction is the fallback.
 2. **Checks the message itself** for payment requests, check-deposit traps, crypto or gift-card requests, suspicious chat redirects, and unrealistic compensation.
 3. **Checks public evidence** with six concurrent signals:
    - Company physical footprint

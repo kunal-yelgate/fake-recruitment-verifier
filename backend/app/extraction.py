@@ -105,7 +105,38 @@ def extract_with_regex(raw_text: str) -> ExtractedFields:
             job_title = m.group(1).strip()
             break
 
-    # 6. Distinctive Phrase (8-12 words from body for fingerprinting)
+    # 6. Salary or compensation
+    salary_range: Optional[str] = None
+    amount_pattern = (
+        r"(?:[$€£]\s?\d[\d,]*(?:\.\d+)?"
+        r"(?:\s*[-–]\s*[$€£]?\s?\d[\d,]*(?:\.\d+)?)?"
+        r"|(?:USD|EUR|GBP)\s?\d[\d,]*(?:\.\d+)?"
+        r"(?:\s*[-–]\s*(?:USD|EUR|GBP)?\s?\d[\d,]*(?:\.\d+)?)?)"
+    )
+    salary_match = re.search(
+        r"(?:salary|compensation|pay|paying|rate)\s*[:\-]?\s*"
+        rf"({amount_pattern}(?:\s*(?:per hour|hourly|per week|weekly|per month|monthly|per year|annually|annual))?)",
+        cleaned,
+        re.IGNORECASE,
+    )
+    if salary_match:
+        salary_range = " ".join(salary_match.group(1).split()).strip()
+
+    # 7. Payment requests, retained verbatim for threat checks and review.
+    payment_requests: list[str] = []
+    payment_patterns = (
+        r"[^.\n]{0,100}\b(?:pay|send|wire|transfer|deposit|fee|charge|purchase|buy)\b"
+        r"[^.\n]{0,100}\b(?:money|payment|fee|deposit|gift card|gift cards|bitcoin|crypto|"
+        r"cryptocurrency|equipment|software|training|background check)\b",
+        r"[^.\n]{0,100}\b(?:gift card|gift cards|bitcoin|crypto|cryptocurrency)\b[^.\n]{0,100}",
+    )
+    for pattern in payment_patterns:
+        for match in re.finditer(pattern, cleaned, re.IGNORECASE):
+            request = " ".join(match.group(0).split()).strip(" -:;,")
+            if request and request.casefold() not in {item.casefold() for item in payment_requests}:
+                payment_requests.append(request)
+
+    # 8. Distinctive Phrase (8-12 words from body for fingerprinting)
     distinctive_phrase = _extract_distinctive_phrase(lines)
 
     return ExtractedFields(
@@ -115,6 +146,8 @@ def extract_with_regex(raw_text: str) -> ExtractedFields:
         contact_email=contact_email,
         distinctive_phrase=distinctive_phrase,
         job_title=job_title,
+        salary_range=salary_range,
+        payment_requests=payment_requests,
         extraction_method="regex",
     )
 
@@ -152,6 +185,19 @@ def _grounded_llm_fields(data: dict, raw_text: str, fallback: ExtractedFields, m
         candidate = " ".join(value.strip().split())
         return candidate if " ".join(candidate.casefold().split()) in normalized_text else None
 
+    def grounded_list(key: str) -> list[str]:
+        values = data.get(key)
+        if not isinstance(values, list):
+            return []
+        grounded = []
+        for value in values:
+            if not isinstance(value, str) or not value.strip():
+                continue
+            candidate = " ".join(value.strip().split())
+            if " ".join(candidate.casefold().split()) in normalized_text:
+                grounded.append(candidate)
+        return grounded
+
     values = {
         "company_name": grounded_value("company_name") or fallback.company_name,
         "recruiter_name": grounded_value("recruiter_name") or fallback.recruiter_name,
@@ -159,6 +205,8 @@ def _grounded_llm_fields(data: dict, raw_text: str, fallback: ExtractedFields, m
         "contact_email": grounded_value("contact_email") or fallback.contact_email,
         "distinctive_phrase": grounded_value("distinctive_phrase") or fallback.distinctive_phrase,
         "job_title": grounded_value("job_title") or fallback.job_title,
+        "salary_range": grounded_value("salary_range") or fallback.salary_range,
+        "payment_requests": grounded_list("payment_requests") or fallback.payment_requests,
     }
     email_domain = values["contact_email"].rsplit("@", 1)[-1].lower() if values["contact_email"] and "@" in values["contact_email"] else None
     if (
@@ -177,8 +225,10 @@ def _grounded_llm_fields(data: dict, raw_text: str, fallback: ExtractedFields, m
             "contact_email",
             "distinctive_phrase",
             "job_title",
+            "salary_range",
         )
     )
+    used_model_value = used_model_value or bool(grounded_list("payment_requests"))
     return ExtractedFields(
         **values,
         extraction_method=method if used_model_value else fallback.extraction_method,
@@ -189,11 +239,14 @@ async def _extract_with_groq(raw_text: str) -> ExtractedFields:
     fallback = extract_with_regex(raw_text)
     prompt = (
         "Extract job-posting details only when they are explicitly present in the text. "
-        "Do not infer, correct, or invent names, emails, domains, titles, or phrases. "
+        "Do not infer, correct, or invent names, emails, domains, titles, salary, payment requests, or phrases. "
         "For missing values return null. Return a JSON object with exactly these keys: "
-        "company_name, recruiter_name, claimed_domain, contact_email, job_title, distinctive_phrase. "
+        "company_name, recruiter_name, claimed_domain, contact_email, job_title, salary_range, "
+        "payment_requests, distinctive_phrase. "
         "claimed_domain means the advertised company or careers website domain, not the email provider; "
-        "if no website is listed, return null. distinctive_phrase must be an exact short phrase copied from the posting."
+        "if no website is listed, return null. salary_range must be copied exactly when present. "
+        "payment_requests must be an array of exact copied text snippets and [] when none are present. "
+        "distinctive_phrase must be an exact short phrase copied from the posting."
     )
     async with httpx.AsyncClient(timeout=20.0) as client:
         response = await client.post(
@@ -244,6 +297,8 @@ async def extract_fields(raw_text: str) -> ExtractedFields:
             '  "claimed_domain": "Domain or null",\n'
             '  "contact_email": "email or null",\n'
             '  "job_title": "Job Title or null",\n'
+            '  "salary_range": "Salary or compensation exactly as written, or null",\n'
+            '  "payment_requests": ["Exact payment request text"] or [],\n'
             '  "distinctive_phrase": "A unique 10-15 word exact sentence from the posting for spam fingerprinting"\n'
             "}\n"
             "Return ONLY the raw JSON object, no explanation."
