@@ -9,6 +9,7 @@ import asyncio
 import csv
 import json
 import random
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -111,51 +112,77 @@ async def run_live_benchmark(
     csv_path: Path,
     seed: int,
     output_path: Path | None,
+    cache_db: Path | None,
 ) -> dict[str, Any]:
     original_search = serpapi_client.search
     original_cache = serpapi_module.cache
-    search_counts = {"live": 0, "fallback_or_error": 0}
+    search_counts = {"live_requests": 0, "cached_live_results": 0, "fallbacks": 0}
+    fallback_types: set[str] = set()
     results = []
 
     async def require_live_search(engine: str, params: dict[str, Any]) -> dict[str, Any]:
+        query_params = {"engine": engine, **params}
+        was_cached = serpapi_module.cache.get(engine, query_params) is not None
         response = await original_search(engine, params)
         if response.get("_is_mock") or response.get("_api_error"):
-            search_counts["fallback_or_error"] += 1
-            raise RuntimeError(
-                "SerpApi returned mock or fallback data. The benchmark was stopped; "
-                "no accuracy result was recorded."
-            )
-        search_counts["live"] += 1
+            search_counts["fallbacks"] += 1
+            if response.get("_is_mock"):
+                fallback_types.add("mock response")
+            else:
+                status = re.search(r"HTTP\s+(\d{3})", str(response.get("_api_error", "")))
+                fallback_types.add(f"HTTP {status.group(1)}" if status else "request error")
+        elif was_cached:
+            search_counts["cached_live_results"] += 1
+        else:
+            search_counts["live_requests"] += 1
         return response
 
-    with tempfile.TemporaryDirectory(prefix="truerecruit-benchmark-") as temp_dir:
-        serpapi_module.cache = QueryCache(str(Path(temp_dir) / "benchmark.sqlite"))
-        serpapi_client.search = require_live_search
-        try:
-            for label, row_number, row in sample:
-                posting_text = make_posting_text(row)
-                if len(posting_text.strip()) < 10:
-                    raise ValueError(f"Dataset row {row_number} has too little posting text.")
+    temp_dir = None
+    if cache_db:
+        cache_db.parent.mkdir(parents=True, exist_ok=True)
+        cache_path = cache_db
+    else:
+        temp_dir = tempfile.TemporaryDirectory(prefix="truerecruit-benchmark-")
+        cache_path = Path(temp_dir.name) / "benchmark.sqlite"
 
-                fields = extract_with_regex(posting_text)
-                signals = await evaluate_all_signals(fields, posting_text)
-                score, verdict, _, _ = calculate_risk_score(signals)
-                results.append(
-                    {
-                        "dataset_row": row_number,
-                        "label": label,
-                        "score": score,
-                        "verdict": verdict,
-                        "predicted_scam": score >= SCAM_THRESHOLD,
-                    }
+    serpapi_module.cache = QueryCache(str(cache_path))
+    serpapi_client.search = require_live_search
+    try:
+        for label, row_number, row in sample:
+            posting_text = make_posting_text(row)
+            if len(posting_text.strip()) < 10:
+                raise ValueError(f"Dataset row {row_number} has too little posting text.")
+
+            fields = extract_with_regex(posting_text)
+            signals = await evaluate_all_signals(fields, posting_text)
+            if search_counts["fallbacks"]:
+                details = ", ".join(sorted(fallback_types))
+                raise RuntimeError(
+                    f"SerpApi returned mock/fallback data ({details}). "
+                    "The benchmark stopped without recording accuracy."
                 )
-                print(
-                    f"{len(results):02}/{len(sample)}: label={label} "
-                    f"score={score} verdict={verdict} live_searches={search_counts['live']}"
-                )
-        finally:
-            serpapi_client.search = original_search
-            serpapi_module.cache = original_cache
+
+            score, verdict, _, _ = calculate_risk_score(signals)
+            results.append(
+                {
+                    "dataset_row": row_number,
+                    "label": label,
+                    "score": score,
+                    "verdict": verdict,
+                    "predicted_scam": score >= SCAM_THRESHOLD,
+                }
+            )
+            print(
+                f"{len(results):02}/{len(sample)}: label={label} "
+                f"score={score} verdict={verdict} "
+                f"live_requests={search_counts['live_requests']} "
+                f"cached={search_counts['cached_live_results']}"
+            )
+    finally:
+        serpapi_client.search = original_search
+        serpapi_module.cache = original_cache
+        if temp_dir:
+            temp_dir.cleanup()
 
     metrics = calculate_metrics(results)
     report = {
@@ -190,6 +217,7 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=42, help="Deterministic sampling seed")
     parser.add_argument("--live", action="store_true", help="Confirm use of live SerpApi searches")
     parser.add_argument("--output", type=Path, help="Optional JSON report path; no posting text is saved")
+    parser.add_argument("--cache-db", type=Path, help="Optional isolated cache database for resuming a run")
     args = parser.parse_args()
 
     if not args.csv_file.is_file():
@@ -203,7 +231,9 @@ def main() -> int:
 
     try:
         sample = load_sample(args.csv_file, args.per_class, args.seed)
-        report = asyncio.run(run_live_benchmark(sample, args.csv_file, args.seed, args.output))
+        report = asyncio.run(
+            run_live_benchmark(sample, args.csv_file, args.seed, args.output, args.cache_db)
+        )
     except Exception as exc:
         print(f"Benchmark failed: {exc}", file=sys.stderr)
         return 1

@@ -39,7 +39,12 @@ class SignalResult(BaseModel):
 
 class CheckResponse(BaseModel):
     """Complete response returned by POST /check."""
-    risk_score: int = Field(..., ge=0, le=100, description="Final risk score 0 (legit) to 100 (scam)")
+    risk_score: int = Field(
+        ...,
+        ge=0,
+        le=100,
+        description="Heuristic risk score from 0 (lower risk signals) to 100 (higher risk signals); not a fraud probability.",
+    )
     verdict: str = Field(..., description="'Likely Scam', 'Caution', or 'Likely Legitimate'")
     verdict_badge: str = Field(..., description="'danger', 'warning', or 'success'")
     base_score: int = Field(50, description="Starting neutral baseline score")

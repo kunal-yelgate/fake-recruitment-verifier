@@ -36,7 +36,8 @@ def test_scam_threshold_trigger():
     assert score == 93
     assert verdict == "Likely Scam"
     assert badge == "danger"
-    assert "High scam probability" in summary
+    assert "High risk score" in summary
+    assert "probability" not in summary.lower()
 
 
 def test_legit_threshold_trigger():
@@ -52,6 +53,8 @@ def test_legit_threshold_trigger():
     assert verdict == "Likely Legitimate"
     assert badge == "success"
     assert "Low risk score" in summary
+    assert "cannot prove" in summary
+    assert "probability" not in summary.lower()
 
 
 def test_score_clamping_bounds():

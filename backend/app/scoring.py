@@ -1,4 +1,7 @@
-"""Transparent weighted scoring engine for fake recruiter verification.
+"""Heuristic weighted scoring engine for fake recruiter verification.
+
+The point values are hand-authored rules and have not been statistically
+calibrated. The resulting score is not a probability of fraud.
 
 Scoring Logic:
   Base score = 50
@@ -50,19 +53,19 @@ def calculate_risk_score(signals: List[SignalResult], base: int = BASE_SCORE) ->
     if verdict == "Likely Scam":
         reasons = "; ".join(s.finding for s in failing_signals[:2])
         summary = (
-            f"High scam probability ({final_score}/100). The posting triggered critical fraud signals: {reasons}. "
+            f"High risk score ({final_score}/100). The posting triggered scam warning signs: {reasons}. "
             "Do not send personal identity documents, deposit unsolicited checks, or communicate on unverified messaging channels."
         )
     elif verdict == "Caution":
         summary = (
-            f"Moderate risk score ({final_score}/100). Mixed verification signals found. Some legitimate corporate traces "
-            "exist, but key verification steps were inconclusive or missing. Exercise due diligence before providing confidential details."
+            f"Moderate risk score ({final_score}/100). Checks found mixed results or not enough information. "
+            "Review the evidence and verify the employer independently before sharing confidential details."
         )
     else:
         corroborations = "; ".join(s.signal_name for s in passing_signals[:3])
         summary = (
-            f"Low risk score ({final_score}/100). Strong corroborated digital footprint across live search results: {corroborations}. "
-            "Posting appears authentic."
+            f"Low risk score ({final_score}/100). Few warning signs were found. Checks with supporting results: {corroborations}. "
+            "This score cannot prove that a posting or recruiter is genuine."
         )
 
     return final_score, verdict, verdict_badge, summary
