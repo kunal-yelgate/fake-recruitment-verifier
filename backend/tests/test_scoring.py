@@ -14,6 +14,8 @@ def make_signal(key: str, delta: int, status: str = "pass") -> SignalResult:
         status=status,
         finding="Mock finding summary",
         query_used="mock query",
+        evidence_url=None,
+        search_url=None,
     )
 
 

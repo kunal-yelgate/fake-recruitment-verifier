@@ -11,7 +11,6 @@ Job Scam & Fake Recruiter Verifier
 [![Vite](https://img.shields.io/badge/Vite-5.4+-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4+-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
 [![SerpApi](https://img.shields.io/badge/SerpApi-Live%20Search%20OSINT-orange?style=flat-square)](https://serpapi.com)
-[![Tests](https://img.shields.io/badge/Pytest-10%2F10%20Passing-brightgreen?style=flat-square)](https://pytest.org)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](LICENSE)
 
 **Cross-check job postings and recruiter outreach against live web intelligence to detect phishing, fake check fraud, lookalike domains, and recruiter impersonation in real-time.**
@@ -35,7 +34,7 @@ TrueRecruit AI cross-checks the posting against live multi-engine search data:
 - 📰 **Threat Intelligence**: Are there recent news reports, FTC consumer alerts, or lawsuit complaints?
 - 👤 **Recruiter Affiliation**: Does the named recruiter have a public professional record connecting them to the hiring company?
 
-Every verdict is a **transparent, weighted sum of live OSINT probes** — not an opaque LLM hallucination — and every evidence line links directly to the real-world search query that verified or flagged it.
+The result combines hand-written checks of the message with public web-search signals. Each finding and search query is shown for review. The point values are hand-authored heuristics, not statistically calibrated weights, and the score is **not a probability** that a job is a scam.
 
 ---
 
@@ -53,14 +52,17 @@ Every verdict is a **transparent, weighted sum of live OSINT probes** — not an
 
 ## 🔍 SerpApi OSINT Engines
 
-| OSINT Signal             | Engine                         | Primary Objective                                      | Scoring Impact                          |
-| ------------------------ | ------------------------------ | ------------------------------------------------------ | --------------------------------------- |
-| **Company Footprint**    | `google_maps`                  | Verifies physical headquarters & place existence       | `-15` (Pass) / `+10` (Missing)          |
-| **LinkedIn Presence**    | `google` (`site:linkedin.com`) | Confirms active corporate identity & headcount         | `-15` (Pass) / `+12` (Missing)          |
-| **Duplicate Posting**    | `google` (Exact Match)         | Detects cross-forum automated spam syndication         | `+18` (Spam) / `-8` (Unique)            |
-| **News Fraud Mentions**  | `google_news`                  | Discovers FTC/BBB alerts and lawsuit complaints        | `+20` (Alert) / `-5` (Clean)            |
-| **Domain & Email Match** | `google`                       | Flags `@gmail/@yahoo` recruiters & lookalike domains   | `+25` (Mismatch) / `-10` (Match)        |
-| **Recruiter Identity**   | `google`                       | Validates recruiter professional record & company link | `-12` (Affiliated) / `+10` (Unverified) |
+| Signal                         | Engine        | What it checks                                                                                   | Current heuristic point changes                                                                 |
+| ------------------------------ | ------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| **In-posting threat patterns** | Text rules    | Check deposits, suspicious chat redirects, gift cards/crypto, and some unusually high pay claims | `+25` critical / `+10` one warning / `-10` none found                                           |
+| **Company footprint**          | `google_maps` | Whether a matching public business listing is found                                              | `-15` found / `+10` not found                                                                   |
+| **LinkedIn presence**          | `google`      | Whether a company page is found                                                                  | `-15` found / `+12` not found                                                                   |
+| **Duplicate posting**          | `google`      | Exact phrase results and suspicious posting sites                                                | `+18` suspicious or widespread copies / `-8` one result / `-4` no widespread copies             |
+| **Fraud news mentions**        | `google_news` | Search results for fraud, scam, or lawsuit reports                                               | `+20` result treated as a direct complaint / `-5` no result or impersonation warning            |
+| **Domain and email match**     | `google`      | Free email, claimed domain, and search result domain                                             | `+25` free email / `+22` domain mismatch / `-15` matching domain / `+5` no domain / `0` unclear |
+| **Recruiter identity**         | `google`      | Public evidence connecting the named recruiter to the company                                    | `-12` connection found / `+10` not found                                                        |
+
+These point values are the current implementation, not learned from labeled data. Missing search results can reflect limited public information and do not by themselves prove fraud.
 
 ---
 
@@ -75,7 +77,7 @@ fake-recruiter-verifier/
 │   │   ├── models.py                   # Pydantic request/response schemas
 │   │   ├── extraction.py               # Posting text → structured entities (Regex/LLM)
 │   │   ├── signals.py                  # 6 parallel SerpApi OSINT verification probes
-│   │   ├── scoring.py                  # Transparent weighted scoring engine (0–100)
+│   │   ├── scoring.py                  # Heuristic risk scoring engine (0–100)
 │   │   ├── cache.py                    # SQLite 24h query cache with TTL & stats
 │   │   └── serpapi_client.py           # Async SerpApi client with local SQLite cache & mock fallback
 │   ├── tests/                          # Backend automated test suite (pytest)
@@ -199,19 +201,37 @@ Run the full automated test suite with pytest:
 pytest -v
 ```
 
-All 10 unit, functional, extraction, scoring, and endpoint tests run in ~1 second.
+The backend suite currently contains 15 unit, functional, extraction, scoring, and endpoint tests.
 
 ---
 
 ## 📊 Scoring Engine
 
-The risk score begins at a neutral base of **50 points** and is adjusted by summing delta points from each verified signal, clamped to `[0, 100]`:
+The heuristic risk score begins at **50 points**, adds the point changes shown above, and is clamped to `[0, 100]`:
 
 $$\text{Final Risk Score} = \text{clamp}\left(50 + \sum \Delta_{\text{signals}},\, 0,\, 100\right)$$
 
-- **`>= 65`** → 🚨 **Likely Scam** (Critical fraud vectors detected; high candidate threat)
-- **`35 – 64`** → ⚠️ **Caution** (Mixed or uncorroborated corporate traces)
-- **`< 35`** → 🛡️ **Likely Legitimate** (Strong corroborated corporate footprint)
+- **`>= 65`** → 🚨 **Likely Scam** (higher-risk warning signs)
+- **`35 – 64`** → ⚠️ **Caution** (mixed results or too little evidence)
+- **`< 35`** → 🛡️ **Likely Legitimate** (lower-risk signals found)
+
+### Calibration and accuracy
+
+The point values and cutoffs are hand-authored heuristics. They have **not** been calibrated or validated on a held-out set of real job postings, so this project does not claim a measured accuracy percentage. The two files in `backend/tests/fixtures/` are functional test examples, not independent real-world validation data. The 0–100 result is a risk index, not a fraud probability; a low score does not prove that a recruiter or job is genuine.
+
+#### Reproducing a benchmark
+
+The [Real or Fake Job Posting Prediction dataset](https://www.kaggle.com/datasets/shivamb/real-or-fake-fake-jobposting-prediction) describes about 18,000 postings and is labeled CC0 on its Kaggle page. Download and extract `fake_job_postings.csv`, configure `SERPAPI_KEY`, then run from the repository root:
+
+```bash
+python backend/benchmark_real_postings.py /path/to/fake_job_postings.csv --live --seed 42 --per-class 15 --output benchmark-results/run.json
+```
+
+This samples 15 postings of each label, uses regex extraction, and requires live SerpApi results. The runner stops without reporting accuracy if any signal falls back to mock/error data. The JSON report contains dataset row numbers, labels, scores, and metrics but does not copy posting text. Each run may use up to about 180 live searches; check your provider quota before running. The decision rule treats only scores of 65 or above as scam; `Caution` counts as not-scam for the reported binary metrics.
+
+#### Current validation status
+
+No valid accuracy figure is available. A live run was attempted on a fixed 30-posting sample, but SerpApi returned a mock fallback before all 30 postings could be scored. The incomplete sample is not reported as accuracy. The provider's demo responses must not be mixed with live-search results. Until a complete run succeeds, the weights and cutoffs remain uncalibrated; do not interpret the score as a probability.
 
 ---
 
@@ -258,7 +278,7 @@ Analyze raw job posting text and run parallel OSINT probes.
       "search_url": "https://www.google.com/search?q=%22Apex+Global+Staffing%22+official+website"
     }
   ],
-  "summary": "High scam probability (77/100). The posting triggered critical fraud signals: Recruiter uses free webmail...",
+  "summary": "High risk score (77/100). The posting triggered scam warning signs: Recruiter uses free webmail...",
   "is_mock": false,
   "execution_time_seconds": 1.42
 }

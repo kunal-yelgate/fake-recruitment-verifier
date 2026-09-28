@@ -126,11 +126,16 @@ async def run_live_benchmark(
         response = await original_search(engine, params)
         if response.get("_is_mock") or response.get("_api_error"):
             search_counts["fallbacks"] += 1
-            if response.get("_is_mock"):
-                fallback_types.add("mock response")
+            api_error = str(response.get("_api_error", "")).lower()
+            status = re.search(r"http\s+(\d{3})", api_error)
+            if status:
+                fallback_types.add(f"HTTP {status.group(1)}")
+            elif "timeout" in api_error or "timed out" in api_error:
+                fallback_types.add("request timeout")
+            elif api_error:
+                fallback_types.add("request error")
             else:
-                status = re.search(r"HTTP\s+(\d{3})", str(response.get("_api_error", "")))
-                fallback_types.add(f"HTTP {status.group(1)}" if status else "request error")
+                fallback_types.add("mock response")
         elif was_cached:
             search_counts["cached_live_results"] += 1
         else:

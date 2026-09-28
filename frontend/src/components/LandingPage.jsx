@@ -115,7 +115,7 @@ export function LandingPage({ onEnter, isDark, onToggleTheme }) {
                 <ScanSearch className="h-6 w-6" />
               </div>
             </div>
-            <div id="how-it-works" className="relative space-y-3 py-7">
+            <div className="relative space-y-3 py-7">
               <div className="flex items-center gap-4 rounded-full border border-white/15 bg-white/5 p-3 pr-5">
                 <div className="rounded-full bg-white/10 p-3">
                   <Globe2 className="h-5 w-5 text-[#f37338]" />
@@ -158,6 +158,99 @@ export function LandingPage({ onEnter, isDark, onToggleTheme }) {
           </p>
         </section>
       </main>
+
+      <section
+        id="how-it-works"
+        className="scroll-mt-8 border-t border-white/10 bg-[#141413] px-5 py-16 text-[#f3f0ee] sm:px-8 lg:px-12 lg:py-24"
+      >
+        <div className="mx-auto max-w-7xl">
+          <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
+            <div className="max-w-2xl">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#f37338]">
+                How it works
+              </p>
+              <h2 className="mt-3 text-3xl font-medium leading-tight sm:text-4xl">
+                Three steps to a clearer answer
+              </h2>
+              <p className="mt-4 text-base leading-7 text-[#d1cdc7]">
+                Check a recruiter message before you share your details or agree
+                to anything.
+              </p>
+            </div>
+            <span className="inline-flex w-fit items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-sm text-[#d1cdc7]">
+              <span className="h-2 w-2 rounded-full bg-[#f37338]" />
+              Simple, evidence-based checks
+            </span>
+          </div>
+
+          <ol className="mt-12 grid gap-8 md:grid-cols-3 md:gap-10">
+            <li className="border-t border-white/20 pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f37338] text-[#141413]">
+                  <ScanSearch className="h-5 w-5" />
+                </div>
+                <span className="font-mono text-sm font-bold text-[#f37338]">
+                  01
+                </span>
+              </div>
+              <h3 className="mt-6 text-xl font-medium">Paste the message</h3>
+              <p className="mt-2 text-sm leading-6 text-[#d1cdc7]">
+                Copy a job post or recruiter message into the checker. It picks
+                out details like the company name, email address, and job title.
+              </p>
+            </li>
+            <li className="border-t border-white/20 pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f37338] text-[#141413]">
+                  <FileWarning className="h-5 w-5" />
+                </div>
+                <span className="font-mono text-sm font-bold text-[#f37338]">
+                  02
+                </span>
+              </div>
+              <h3 className="mt-6 text-xl font-medium">
+                Look for warning signs
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-[#d1cdc7]">
+                It checks for requests for money, pressure to act quickly,
+                unusual email addresses, and company details that do not match.
+              </p>
+            </li>
+            <li className="border-t border-white/20 pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#f37338] text-[#141413]">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
+                <span className="font-mono text-sm font-bold text-[#f37338]">
+                  03
+                </span>
+              </div>
+              <h3 className="mt-6 text-xl font-medium">Review the result</h3>
+              <p className="mt-2 text-sm leading-6 text-[#d1cdc7]">
+                See a risk score, why it was given, and practical safety advice.
+                Use the evidence to decide what to do next.
+              </p>
+            </li>
+          </ol>
+
+          <div className="mt-12 flex flex-col gap-5 border-t border-white/15 pt-7 sm:flex-row sm:items-center sm:justify-between">
+            <p className="max-w-2xl text-sm leading-6 text-[#d1cdc7]">
+              <span className="font-semibold text-white">Keep in mind:</span> a
+              low score cannot prove a job is genuine. Never send money or
+              sensitive personal information just because a message looks
+              convincing.
+            </p>
+            <button
+              type="button"
+              onClick={onEnter}
+              className="group inline-flex w-fit items-center gap-3 rounded-full bg-[#f37338] px-5 py-3 text-sm font-semibold text-[#141413] transition hover:bg-[#ff8955]"
+            >
+              Check a message
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
