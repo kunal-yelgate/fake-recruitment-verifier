@@ -9,7 +9,9 @@ export function VerdictHero({
   verdict,
   verdictBadge,
   summary,
+  groqDecision,
   isMock,
+  hasSearchError,
   executionTime,
   onOpenExport,
 }) {
@@ -60,10 +62,42 @@ export function VerdictHero({
           {summary}
         </p>
 
+        {groqDecision && (
+          <div className="max-w-2xl border-t border-white/15 pt-4 text-left">
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-orange-300">
+              Groq second opinion · does not change the score
+            </p>
+            <p className="mt-2 text-sm font-semibold text-white">
+              {{
+                avoid_contact: "Avoid contact for now",
+                verify_independently: "Verify independently before proceeding",
+                no_clear_warning_found: "No clear warning found in the available evidence",
+              }[groqDecision.recommendation] || "Verify independently before proceeding"}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-300">
+              {groqDecision.explanation}
+            </p>
+            <ul className="mt-2 space-y-1">
+              {groqDecision.evidence_quotes.map((quote, index) => (
+                <li key={`${quote}-${index}`} className="border-l-2 border-orange-300/70 pl-2 text-[11px] italic text-slate-300">
+                  “{quote}”
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {isMock && (
           <div className="inline-flex items-center gap-1.5 text-xs text-amber-300 bg-amber-400/10 px-3 py-1.5 rounded-lg border border-amber-400/20">
             <Info className="w-3.5 h-3.5 flex-shrink-0" />
-            <span>Demo Mode: Simulating live OSINT responses (configure SERPAPI_KEY in .env for live searches)</span>
+            <span>Demo mode: simulated search results are not live evidence.</span>
+          </div>
+        )}
+
+        {hasSearchError && (
+          <div className="inline-flex items-center gap-1.5 text-xs text-amber-200 bg-amber-400/10 px-3 py-1.5 rounded-lg border border-amber-400/20">
+            <Info className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>Some searches failed. Those checks were excluded from scoring.</span>
           </div>
         )}
 

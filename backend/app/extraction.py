@@ -7,8 +7,11 @@ regex fallback for zero-dependency local operation.
 import json
 import re
 from typing import Optional
+import httpx
 from app.config import settings
 from app.models import ExtractedFields
+
+GROQ_CHAT_COMPLETIONS_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 
 def extract_with_regex(raw_text: str) -> ExtractedFields:
@@ -138,8 +141,84 @@ def _extract_distinctive_phrase(lines: list[str]) -> str:
     return "Job opportunity remote position hiring immediately"
 
 
+def _grounded_llm_fields(data: dict, raw_text: str, fallback: ExtractedFields, method: str) -> ExtractedFields:
+    """Accept model-extracted values only when they occur in the supplied posting."""
+    normalized_text = " ".join(raw_text.casefold().split())
+
+    def grounded_value(key: str) -> Optional[str]:
+        value = data.get(key)
+        if not isinstance(value, str) or not value.strip():
+            return None
+        candidate = " ".join(value.strip().split())
+        return candidate if " ".join(candidate.casefold().split()) in normalized_text else None
+
+    values = {
+        "company_name": grounded_value("company_name") or fallback.company_name,
+        "recruiter_name": grounded_value("recruiter_name") or fallback.recruiter_name,
+        "claimed_domain": grounded_value("claimed_domain") or fallback.claimed_domain,
+        "contact_email": grounded_value("contact_email") or fallback.contact_email,
+        "distinctive_phrase": grounded_value("distinctive_phrase") or fallback.distinctive_phrase,
+        "job_title": grounded_value("job_title") or fallback.job_title,
+    }
+    used_model_value = any(
+        grounded_value(field) is not None
+        for field in (
+            "company_name",
+            "recruiter_name",
+            "claimed_domain",
+            "contact_email",
+            "distinctive_phrase",
+            "job_title",
+        )
+    )
+    return ExtractedFields(
+        **values,
+        extraction_method=method if used_model_value else fallback.extraction_method,
+    )
+
+
+async def _extract_with_groq(raw_text: str) -> ExtractedFields:
+    fallback = extract_with_regex(raw_text)
+    prompt = (
+        "Extract job-posting details only when they are explicitly present in the text. "
+        "Do not infer, correct, or invent names, emails, domains, titles, or phrases. "
+        "For missing values return null. Return a JSON object with exactly these keys: "
+        "company_name, recruiter_name, claimed_domain, contact_email, job_title, distinctive_phrase. "
+        "distinctive_phrase must be an exact short phrase copied from the posting."
+    )
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        response = await client.post(
+            GROQ_CHAT_COMPLETIONS_URL,
+            headers={"Authorization": f"Bearer {settings.groq_api_key}"},
+            json={
+                "model": settings.groq_model,
+                "temperature": 0,
+                "max_tokens": 500,
+                "response_format": {"type": "json_object"},
+                "messages": [
+                    {"role": "system", "content": prompt},
+                    {"role": "user", "content": raw_text[:6000]},
+                ],
+            },
+        )
+        response.raise_for_status()
+        content = response.json()["choices"][0]["message"]["content"]
+    data = json.loads(content)
+    if not isinstance(data, dict):
+        raise ValueError("Groq extraction response must be a JSON object")
+    return _grounded_llm_fields(data, raw_text, fallback, "groq")
+
+
 async def extract_fields(raw_text: str) -> ExtractedFields:
-    """Extract fields using Anthropic LLM if key is configured, else regex fallback."""
+    """Use Groq or Anthropic for grounded extraction, falling back to regex."""
+    if settings.groq_api_key and settings.groq_api_key.strip() not in ("", "your_key_here"):
+        try:
+            groq_fields = await _extract_with_groq(raw_text)
+            if groq_fields.extraction_method == "groq":
+                return groq_fields
+        except Exception:
+            pass
+
     if not settings.anthropic_api_key or settings.anthropic_api_key.strip() in ("", "your_key_here"):
         return extract_with_regex(raw_text)
 
@@ -172,15 +251,8 @@ async def extract_fields(raw_text: str) -> ExtractedFields:
 
         response_text = message.content[0].text.strip()
         data = json.loads(response_text)
-        return ExtractedFields(
-            company_name=data.get("company_name") or "Undisclosed Company",
-            recruiter_name=data.get("recruiter_name"),
-            claimed_domain=data.get("claimed_domain"),
-            contact_email=data.get("contact_email"),
-            distinctive_phrase=data.get("distinctive_phrase"),
-            job_title=data.get("job_title"),
-            extraction_method="llm",
-        )
+        fallback = extract_with_regex(raw_text)
+        return _grounded_llm_fields(data, raw_text, fallback, "llm")
     except Exception:
         # Gracefully fall back to regex on any API or parsing failure
         return extract_with_regex(raw_text)

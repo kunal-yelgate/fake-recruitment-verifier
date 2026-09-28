@@ -1,6 +1,6 @@
 """Pydantic schemas for request, response, and intermediate verification data."""
 
-from typing import List, Optional
+from typing import List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
@@ -35,6 +35,20 @@ class SignalResult(BaseModel):
     query_used: str = Field(..., description="Exact query string sent to SerpApi")
     evidence_url: Optional[str] = Field(None, description="Direct URL to corroborating evidence or SerpApi link")
     search_url: Optional[str] = Field(None, description="Clickable Google/Maps/News search link for manual review")
+    data_source: str = Field(
+        default="live",
+        description="Evidence source: live search, source text, mock demo data, or unavailable provider response",
+    )
+
+
+class GroqDecision(BaseModel):
+    recommendation: Literal[
+        "avoid_contact",
+        "verify_independently",
+        "no_clear_warning_found",
+    ]
+    explanation: str = Field(..., min_length=1, max_length=400)
+    evidence_quotes: List[str] = Field(..., min_length=1, max_length=4)
 
 
 class CheckResponse(BaseModel):
@@ -50,6 +64,10 @@ class CheckResponse(BaseModel):
     base_score: int = Field(50, description="Starting neutral baseline score")
     extracted_fields: ExtractedFields
     signals: List[SignalResult]
+    groq_decision: Optional[GroqDecision] = Field(
+        None,
+        description="Optional Groq second opinion grounded in the posting and live evidence; does not alter risk_score.",
+    )
     summary: str = Field(..., description="High-level narrative explaining the risk score")
-    is_mock: bool = Field(False, description="True if mock data was used (no SERPAPI_KEY configured)")
+    is_mock: bool = Field(False, description="True if any search signal used simulated mock data")
     execution_time_seconds: float = Field(..., description="Total processing time in seconds")

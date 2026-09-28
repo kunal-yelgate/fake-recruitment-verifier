@@ -94,3 +94,22 @@ async def test_undisclosed_company_handling():
     assert footprint.score_delta == 0
     assert linkedin.status == "warning"
     assert linkedin.score_delta == 0
+
+
+@pytest.mark.asyncio
+async def test_search_provider_error_is_neutral(monkeypatch):
+    """Provider fallback data must not be scored as search evidence."""
+    fields = ExtractedFields(company_name="Acme Corp")
+
+    async def mock_search(engine, params):
+        return {"_source": "error", "_api_error": "SerpApi HTTP 429"}
+
+    from app.signals import serpapi_client
+    monkeypatch.setattr(serpapi_client, "search", mock_search)
+
+    result = await check_company_footprint(fields)
+
+    assert result.status == "warning"
+    assert result.score_delta == 0
+    assert result.data_source == "error"
+    assert "unavailable" in result.finding.lower()

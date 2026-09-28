@@ -136,7 +136,9 @@ export default function App() {
               verdict={results.verdict}
               verdictBadge={results.verdict_badge}
               summary={results.summary}
+              groqDecision={results.groq_decision}
               isMock={results.is_mock}
+              hasSearchError={results.signals.some((signal) => signal.data_source === "error")}
               executionTime={results.execution_time_seconds}
               onOpenExport={() => setIsExportOpen(true)}
             />

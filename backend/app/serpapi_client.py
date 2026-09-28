@@ -20,11 +20,16 @@ class SerpApiClient:
         # 1. Check local SQLite cache first (24h TTL)
         cached_result = cache.get(engine, search_params)
         if cached_result is not None:
+            cached_result.setdefault(
+                "_source",
+                "mock" if cached_result.get("_is_mock") else "error" if cached_result.get("_api_error") else "live",
+            )
             return cached_result
 
         # 2. If no API key is provided, return simulated live search responses
         if not self.api_key or self.api_key.strip() in ("", "your_serpapi_key_here"):
             mock_data = self._generate_mock_response(engine, params)
+            mock_data["_source"] = "mock"
             # Cache mock data as well for repeat demo tests
             cache.set(engine, search_params, mock_data)
             return mock_data
@@ -37,16 +42,19 @@ class SerpApiClient:
                 response.raise_for_status()
                 data = response.json()
                 data["_is_mock"] = False
+                data["_source"] = "live"
                 cache.set(engine, search_params, data)
                 return data
             except httpx.HTTPStatusError as exc:
                 # If unauthorized/quota exhausted, fall back to mock with warning
                 mock_data = self._generate_mock_response(engine, params)
                 mock_data["_api_error"] = f"SerpApi HTTP {exc.response.status_code}: {exc.response.text}"
+                mock_data["_source"] = "error"
                 return mock_data
             except Exception as exc:
                 mock_data = self._generate_mock_response(engine, params)
                 mock_data["_api_error"] = str(exc)
+                mock_data["_source"] = "error"
                 return mock_data
 
     def _generate_mock_response(self, engine: str, params: Dict[str, Any]) -> Dict[str, Any]:

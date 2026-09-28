@@ -140,7 +140,10 @@ Edit `.env`:
 
 ```env
 SERPAPI_KEY=your_actual_serpapi_key_here
+GROQ_API_KEY=your_groq_api_key_here
 ```
+
+Groq is optional. When `GROQ_API_KEY` is set, the backend sends the posting text to Groq for grounded field extraction and a separate evidence-based recommendation; extracted values and cited quotes must appear in the posting or live search findings. SerpApi remains the source of public web checks. Groq's recommendation is shown separately and does not change the numeric score. Without a Groq key, the existing Anthropic or regex extraction path is used and no Groq recommendation is shown. Set `GROQ_MODEL` to override the default model. Posting text is sent to Groq when enabled, so configure it only if that data sharing is acceptable. Never commit API keys; add them only to your ignored local `.env` or deployment secrets.
 
 ### 3. Start Backend (FastAPI)
 
@@ -201,7 +204,7 @@ Run the full automated test suite with pytest:
 pytest -v
 ```
 
-The backend suite currently contains 15 unit, functional, extraction, scoring, and endpoint tests.
+The backend suite currently contains 20 unit, functional, extraction, scoring, and endpoint tests.
 
 ---
 
@@ -231,7 +234,9 @@ This samples 15 postings of each label, uses regex extraction, and requires live
 
 #### Current validation status
 
-No valid accuracy figure is available. A live run was attempted on a fixed 30-posting sample, but SerpApi returned a mock fallback before all 30 postings could be scored. The incomplete sample is not reported as accuracy. The provider's demo responses must not be mixed with live-search results. Until a complete run succeeds, the weights and cutoffs remain uncalibrated; do not interpret the score as a probability.
+No complete-set accuracy figure is available. In a fixed-seed live run, SerpApi returned a mock fallback after 18 of the 30 selected postings had completed. On that incomplete prefix (7 legitimate, 11 fraudulent), the `>= 65` scam cutoff got **4/18 correct (22.2% partial accuracy)**: 0 true positives, 3 false positives, 4 true negatives, and 11 false negatives. Scam precision was 0/3 (0%); scam recall was 0/11 (0%).
+
+These are descriptive results for an incomplete prefix, **not a valid benchmark score or calibration set**: the run stopped early and the remaining 12 postings were not evaluated. Do not generalize this partial result to the full dataset. The provider's demo responses must not be mixed with live-search results. Until a complete run succeeds, the weights and cutoffs remain uncalibrated; do not interpret the score as a probability.
 
 ---
 

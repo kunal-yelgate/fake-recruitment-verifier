@@ -3,6 +3,7 @@
 import asyncio
 import urllib.parse
 from typing import List, Optional
+from app.config import settings
 from app.models import ExtractedFields, SignalResult
 from app.serpapi_client import serpapi_client
 
@@ -26,6 +27,24 @@ FREE_EMAIL_DOMAINS = {
     "fastmail.com",
     "hushmail.com",
 }
+
+
+def _unavailable_search_signal(data: dict, signal_name: str, engine: str, query: str, search_url: str) -> Optional[SignalResult]:
+    """Return a neutral result when a provider error cannot support evidence."""
+    if data.get("_source") != "error":
+        return None
+    return SignalResult(
+        signal_key=signal_name.lower().replace(" ", "_"),
+        signal_name=signal_name,
+        engine=engine,
+        score_delta=0,
+        status="warning",
+        finding="Verification unavailable because the search provider returned an error. No risk points were applied.",
+        query_used=query,
+        evidence_url=None,
+        search_url=search_url,
+        data_source="error",
+    )
 
 JOB_PLATFORM_DOMAINS = {
     "indeed.com",
@@ -113,6 +132,7 @@ async def check_in_text_threats(fields: ExtractedFields, raw_text: str = "") -> 
             query_used="In-text NLP Threat Pattern Scan",
             evidence_url=None,
             search_url=None,
+            data_source="text",
         )
     elif len(threats_found) == 1:
         return SignalResult(
@@ -125,6 +145,7 @@ async def check_in_text_threats(fields: ExtractedFields, raw_text: str = "") -> 
             query_used="In-text NLP Threat Pattern Scan",
             evidence_url=None,
             search_url=None,
+            data_source="text",
         )
 
     return SignalResult(
@@ -137,6 +158,7 @@ async def check_in_text_threats(fields: ExtractedFields, raw_text: str = "") -> 
         query_used="In-text NLP Threat Pattern Scan",
         evidence_url=None,
         search_url=None,
+        data_source="text",
     )
 
 
@@ -158,12 +180,16 @@ async def check_company_footprint(fields: ExtractedFields) -> SignalResult:
 
     query = company
     params = {"q": query}
+    search_url = f"https://www.google.com/maps/search/{urllib.parse.quote_plus(query)}"
 
     data = await serpapi_client.search("google_maps", params)
+    unavailable = _unavailable_search_signal(data, "Company Physical Footprint", "google_maps", query, search_url)
+    if unavailable:
+        unavailable.signal_key = "company_footprint"
+        return unavailable
     local_results = data.get("local_results", [])
     place = data.get("place_results")
 
-    search_url = f"https://www.google.com/maps/search/{urllib.parse.quote_plus(query)}"
     evidence_url = None
 
     match_found = False
@@ -232,11 +258,15 @@ async def check_linkedin_presence(fields: ExtractedFields) -> SignalResult:
 
     query = f'site:linkedin.com/company "{company}"'
     params = {"q": query}
+    search_url = f"https://www.google.com/search?q={urllib.parse.quote_plus(query)}"
 
     data = await serpapi_client.search("google", params)
+    unavailable = _unavailable_search_signal(data, "LinkedIn Corporate Presence", "google", query, search_url)
+    if unavailable:
+        unavailable.signal_key = "linkedin_presence"
+        return unavailable
     organic = data.get("organic_results", [])
 
-    search_url = f"https://www.google.com/search?q={urllib.parse.quote_plus(query)}"
     evidence_url = None
 
     for item in organic:
@@ -273,12 +303,15 @@ async def check_duplicate_posting(fields: ExtractedFields) -> SignalResult:
     phrase = fields.distinctive_phrase or "hiring remote immediate"
     query = f'"{phrase}"'
     params = {"q": query}
+    search_url = f"https://www.google.com/search?q={urllib.parse.quote_plus(query)}"
 
     data = await serpapi_client.search("google", params)
+    unavailable = _unavailable_search_signal(data, "Duplicate / Cross-Posting Fingerprint", "google", query, search_url)
+    if unavailable:
+        unavailable.signal_key = "duplicate_posting"
+        return unavailable
     organic = data.get("organic_results", [])
     count = len(organic)
-
-    search_url = f"https://www.google.com/search?q={urllib.parse.quote_plus(query)}"
 
     # Check if duplicate is on pastebins or known suspicious boards
     suspicious_domains = {"pastebin.com", "telegra.ph", "freelance-jobs.xyz", "classifieds-spam.net", "forum"}
@@ -349,11 +382,14 @@ async def check_news_fraud(fields: ExtractedFields) -> SignalResult:
 
     query = f'"{company}" (scam OR fraud OR fake OR lawsuit OR complaint)'
     params = {"q": query}
+    search_url = f"https://news.google.com/search?q={urllib.parse.quote_plus(query)}"
 
     data = await serpapi_client.search("google_news", params)
+    unavailable = _unavailable_search_signal(data, "News Fraud & Scam Mentions", "google_news", query, search_url)
+    if unavailable:
+        unavailable.signal_key = "news_fraud_mentions"
+        return unavailable
     news = data.get("news_results", [])
-
-    search_url = f"https://news.google.com/search?q={urllib.parse.quote_plus(query)}"
 
     if news and len(news) > 0:
         top_news = news[0]
@@ -435,6 +471,10 @@ async def check_domain_match(fields: ExtractedFields) -> SignalResult:
 
     # 2. Check corporate domain via Google search
     data = await serpapi_client.search("google", params)
+    unavailable = _unavailable_search_signal(data, "Domain & Email Match", "google", query, search_url)
+    if unavailable:
+        unavailable.signal_key = "domain_match"
+        return unavailable
     organic = data.get("organic_results", [])
 
     official_domain = ""
@@ -526,10 +566,13 @@ async def check_recruiter_identity(fields: ExtractedFields) -> SignalResult:
 
     query = f'"{recruiter}" "{company}" (recruiter OR talent OR HR OR "human resources" OR linkedin)'
     params = {"q": query}
-    data = await serpapi_client.search("google", params)
-    organic = data.get("organic_results", [])
-
     search_url = f"https://www.google.com/search?q={urllib.parse.quote_plus(query)}"
+    data = await serpapi_client.search("google", params)
+    unavailable = _unavailable_search_signal(data, "Recruiter Identity Verification", "google", query, search_url)
+    if unavailable:
+        unavailable.signal_key = "recruiter_check"
+        return unavailable
+    organic = data.get("organic_results", [])
 
     recruiter_parts = recruiter.lower().split()
     company_clean = "".join(c for c in company.lower() if c.isalnum() or c.isspace())
@@ -582,4 +625,9 @@ async def evaluate_all_signals(fields: ExtractedFields, raw_text: str = "") -> L
         check_recruiter_identity(fields),
     ]
     results: List[SignalResult] = await asyncio.gather(*tasks)
+    has_live_key = bool(settings.serpapi_key and settings.serpapi_key.strip() not in ("", "your_serpapi_key_here"))
+    if not has_live_key:
+        for result in results:
+            if result.engine != "nlp_regex" and result.data_source == "live":
+                result.data_source = "mock"
     return results

@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.models import CheckRequest, CheckResponse
 from app.extraction import extract_fields
+from app.groq_analysis import assess_with_groq
 from app.signals import evaluate_all_signals
 from app.scoring import calculate_risk_score
 from app.cache import cache
@@ -89,8 +90,14 @@ async def check_posting(request: CheckRequest):
     # Step 3: Compute weighted score and verdict
     risk_score, verdict, verdict_badge, summary = calculate_risk_score(signals)
 
-    # Check if any signal ran in mock mode (when SERPAPI_KEY is not set)
-    is_mock = not bool(settings.serpapi_key and settings.serpapi_key.strip() not in ("", "your_serpapi_key_here"))
+    # Optional Groq second opinion; kept separate from the uncalibrated numeric score.
+    groq_decision = await assess_with_groq(request.raw_text, signals)
+
+    # Surface demo mode and provider failures instead of presenting them as live evidence.
+    is_mock = (
+        not bool(settings.serpapi_key and settings.serpapi_key.strip() not in ("", "your_serpapi_key_here"))
+        or any(signal.data_source == "mock" for signal in signals)
+    )
 
     elapsed = round(time.time() - start_time, 3)
 
@@ -101,6 +108,7 @@ async def check_posting(request: CheckRequest):
         base_score=50,
         extracted_fields=extracted,
         signals=signals,
+        groq_decision=groq_decision,
         summary=summary,
         is_mock=is_mock,
         execution_time_seconds=elapsed,

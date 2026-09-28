@@ -8,6 +8,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     # API Keys
     serpapi_key: Optional[str] = None
+    groq_api_key: Optional[str] = None
+    groq_model: str = "llama-3.3-70b-versatile"
     anthropic_api_key: Optional[str] = None
 
     # Server configuration
