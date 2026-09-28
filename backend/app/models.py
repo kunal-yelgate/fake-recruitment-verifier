@@ -63,6 +63,63 @@ class LinkedInReferralLead(BaseModel):
     search_evidence: str = Field(..., min_length=1, max_length=500)
 
 
+class VerifiableClaim(BaseModel):
+    claim_id: str
+    claim_type: str
+    text: str = Field(..., min_length=1, max_length=300)
+    value: str = Field(..., min_length=1, max_length=300)
+    source_quote: str = Field(..., min_length=1, max_length=500)
+    importance: Literal["high", "medium", "low"] = "medium"
+
+
+class SearchPlan(BaseModel):
+    claim_id: str
+    engine: Literal["google", "google_news", "google_maps"]
+    query: str = Field(..., min_length=3, max_length=300)
+    purpose: str = Field(..., min_length=1, max_length=240)
+    round: int = Field(0, ge=0, le=2)
+
+
+class SearchEvidence(BaseModel):
+    claim_id: str
+    engine: str
+    query: str
+    title: str = ""
+    snippet: str = ""
+    url: Optional[str] = None
+    source: Literal["live", "mock", "error", "text"] = "live"
+
+
+class ClaimJudgment(BaseModel):
+    claim_id: str
+    classification: Literal["supports", "contradicts", "unrelated", "ambiguous"]
+    explanation: str = Field(..., min_length=1, max_length=400)
+    source_snippet: str = Field(..., min_length=1, max_length=700)
+    evidence_urls: List[str] = Field(default_factory=list, max_length=5)
+
+
+class FollowUpRequest(BaseModel):
+    claim_id: str
+    query: str = Field(..., min_length=3, max_length=300)
+    engine: Literal["google", "google_news", "google_maps"] = "google"
+    reason: str = Field(..., min_length=1, max_length=240)
+
+
+class CitedExplanation(BaseModel):
+    text: str = Field(..., min_length=1, max_length=1600)
+    citations: List[str] = Field(default_factory=list, max_length=12)
+
+
+class ClaimPipelineAudit(BaseModel):
+    claims: List[VerifiableClaim] = Field(default_factory=list)
+    search_plan: List[SearchPlan] = Field(default_factory=list)
+    evidence: List[SearchEvidence] = Field(default_factory=list)
+    judgments: List[ClaimJudgment] = Field(default_factory=list)
+    follow_ups: List[FollowUpRequest] = Field(default_factory=list)
+    explanation: Optional[CitedExplanation] = None
+    rounds_completed: int = Field(0, ge=0, le=2)
+
+
 class CheckResponse(BaseModel):
     """Complete response returned by POST /check."""
     risk_score: int = Field(
@@ -76,6 +133,10 @@ class CheckResponse(BaseModel):
     base_score: int = Field(50, description="Starting neutral baseline score")
     extracted_fields: ExtractedFields
     signals: List[SignalResult]
+    claim_audit: Optional[ClaimPipelineAudit] = Field(
+        None,
+        description="Auditable claim extraction, search planning, evidence, judgments, follow-ups, and citations.",
+    )
     groq_decision: Optional[GroqDecision] = Field(
         None,
         description="Optional Groq apply recommendation grounded in the posting and live evidence; does not alter risk_score.",

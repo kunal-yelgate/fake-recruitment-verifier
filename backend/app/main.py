@@ -7,7 +7,8 @@ from app.config import settings
 from app.models import CheckRequest, CheckResponse
 from app.extraction import extract_fields
 from app.groq_analysis import assess_with_groq
-from app.signals import evaluate_all_signals, find_linkedin_referral_leads
+from app.claim_pipeline import run_claim_pipeline, write_cited_explanation
+from app.signals import find_linkedin_referral_leads
 from app.scoring import calculate_risk_score
 from app.cache import cache
 
@@ -20,11 +21,11 @@ The Fake Recruiter Verifier analyzes a job posting or recruiter message and retu
 
 ## Analysis workflow
 
-1. **Extract details** - identifies the company, recruiter, email/domain, job title, and distinctive phrases.
-2. **Scan the message** - checks for payment requests, check-deposit traps, crypto or gift-card requests, suspicious chat redirects, and unrealistic compensation.
-3. **Verify public signals** - runs six concurrent checks for company footprint, LinkedIn presence, duplicate postings, fraud/news mentions, domain/email integrity, and recruiter affiliation.
-4. **Calculate the result** - applies transparent weighted signal deltas to a base score of 50 and clamps the result to 0-100.
-5. **Return evidence** - provides the verdict, extracted fields, signal findings, search URLs, and a safety summary.
+1. **Extract claims** - identifies externally verifiable company, recruiter, compensation, contact, domain, address, and hiring-platform statements.
+2. **Plan searches** - Groq proposes bounded searches for each claim.
+3. **Verify and judge evidence** - SerpApi returns public evidence and Groq classifies it as supporting, contradicting, unrelated, or ambiguous. Ambiguous claims can receive at most two follow-up rounds.
+4. **Calculate the result** - deterministic rules apply weighted deltas to a base score of 50 and clamp the result to 0-100.
+5. **Return evidence** - provides the claim audit, source snippets, citations, verdict, extracted fields, and safety summary.
 
 The API does not make a legal determination or guarantee that a recruiter is safe. A low-risk result means the available public evidence is corroborating; users should still protect personal and financial information.
 """,
@@ -84,11 +85,15 @@ async def check_posting(request: CheckRequest):
     # Step 1: Structured extraction (Anthropic LLM or regex fallback)
     extracted = await extract_fields(request.raw_text)
 
-    # Step 2: Concurrently evaluate all SerpApi & in-text signals
-    signals = await evaluate_all_signals(extracted, request.raw_text)
+    # Step 2: Extract claims, plan bounded searches, judge evidence, and retain an audit trail.
+    claim_audit, signals = await run_claim_pipeline(request.raw_text, extracted)
 
     # Step 3: Compute weighted score and verdict
     risk_score, verdict, verdict_badge, summary = calculate_risk_score(signals)
+    claim_audit.explanation = await write_cited_explanation(
+        claim_audit.judgments,
+        risk_score,
+    )
 
     # Optional Groq second opinion; kept separate from the uncalibrated numeric score.
     groq_decision = await assess_with_groq(request.raw_text, signals)
@@ -111,6 +116,7 @@ async def check_posting(request: CheckRequest):
         base_score=50,
         extracted_fields=extracted,
         signals=signals,
+        claim_audit=claim_audit,
         groq_decision=groq_decision,
         linkedin_referral_leads=linkedin_referral_leads,
         summary=summary,

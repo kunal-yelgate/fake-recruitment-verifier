@@ -92,7 +92,9 @@ def test_fastapi_check_endpoint():
             assert "risk_score" in data
             assert data["risk_score"] >= 65
             assert data["verdict"] == "Likely Scam"
-            assert len(data["signals"]) == 7
+            assert data["signals"]
+            assert data["claim_audit"]["claims"]
+            assert data["claim_audit"]["judgments"]
             assert data["extracted_fields"]["company_name"] is not None
             print(f"\n[API /check TEST] Response received in {data['execution_time_seconds']}s")
             print(f"Risk Score: {data['risk_score']}/100 | Verdict: {data['verdict']}")
