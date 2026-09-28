@@ -43,12 +43,19 @@ class SignalResult(BaseModel):
 
 class GroqDecision(BaseModel):
     recommendation: Literal[
-        "avoid_contact",
-        "verify_independently",
-        "no_clear_warning_found",
+        "apply",
+        "do_not_apply",
+        "verify_before_applying",
     ]
     explanation: str = Field(..., min_length=1, max_length=400)
     evidence_quotes: List[str] = Field(..., min_length=1, max_length=4)
+
+
+class LinkedInReferralLead(BaseModel):
+    name: str = Field(..., min_length=1, max_length=160)
+    headline: str = Field(default="", max_length=300)
+    profile_url: str = Field(..., min_length=1, max_length=500)
+    search_evidence: str = Field(..., min_length=1, max_length=500)
 
 
 class CheckResponse(BaseModel):
@@ -66,7 +73,11 @@ class CheckResponse(BaseModel):
     signals: List[SignalResult]
     groq_decision: Optional[GroqDecision] = Field(
         None,
-        description="Optional Groq second opinion grounded in the posting and live evidence; does not alter risk_score.",
+        description="Optional Groq apply recommendation grounded in the posting and live evidence; does not alter risk_score.",
+    )
+    linkedin_referral_leads: List[LinkedInReferralLead] = Field(
+        default_factory=list,
+        description="Public LinkedIn search matches for possible company referral contacts; current employment must be verified independently.",
     )
     summary: str = Field(..., description="High-level narrative explaining the risk score")
     is_mock: bool = Field(False, description="True if any search signal used simulated mock data")

@@ -46,6 +46,18 @@ def test_extract_fallback_defaults():
     assert fields.distinctive_phrase is not None
 
 
+def test_extract_website_domain_separately_from_free_email():
+    posting = (
+        "Company: Acme Labs\nRecruiter: Jamie Smith\n"
+        "Email: jamie@gmail.com\nCareers site: https://acmelabs.example/jobs"
+    )
+
+    fields = extract_with_regex(posting)
+
+    assert fields.contact_email == "jamie@gmail.com"
+    assert fields.claimed_domain == "acmelabs.example"
+
+
 @pytest.mark.asyncio
 async def test_groq_extraction_uses_only_text_grounded_values(monkeypatch):
     posting = (
@@ -92,6 +104,22 @@ async def test_groq_extraction_uses_only_text_grounded_values(monkeypatch):
     assert fields.company_name == "Acme Labs"
     assert fields.recruiter_name != "Imaginary Person"
     assert fields.contact_email == "jamie@acme.example"
+
+
+def test_llm_claimed_domain_does_not_replace_website_with_email_provider():
+    posting = "Email: recruiter@gmail.com\nCareers site: https://acme.example/jobs"
+    fallback = extract_with_regex(posting)
+    fields = extraction._grounded_llm_fields(
+        {
+            "claimed_domain": "gmail.com",
+            "contact_email": "recruiter@gmail.com",
+        },
+        posting,
+        fallback,
+        "groq",
+    )
+
+    assert fields.claimed_domain == "acme.example"
 
 
 @pytest.mark.asyncio

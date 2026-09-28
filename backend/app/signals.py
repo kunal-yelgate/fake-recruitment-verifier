@@ -1,10 +1,14 @@
 """Parallel SerpApi and text forensic signal evaluators for cross-checking job postings with live web data."""
 
 import asyncio
+from datetime import datetime, timezone
+import re
 import urllib.parse
 from typing import List, Optional
+import httpx
 from app.config import settings
-from app.models import ExtractedFields, SignalResult
+from app.groq_analysis import select_official_domain_with_groq
+from app.models import ExtractedFields, LinkedInReferralLead, SignalResult
 from app.serpapi_client import serpapi_client
 
 FREE_EMAIL_DOMAINS = {
@@ -83,6 +87,114 @@ def _extract_domain_from_url(url: str) -> str:
         return domain.lower().split(":")[0]
     except Exception:
         return ""
+
+
+_COMPOUND_PUBLIC_SUFFIXES = {
+    "ac.uk", "co.in", "co.jp", "co.nz", "co.uk", "com.au", "com.br",
+    "com.cn", "com.hk", "com.mx", "com.sg", "com.tw", "com.ua", "com.vn",
+    "net.au", "org.au",
+}
+_BRAND_DOMAIN_SUFFIXES = {"careers", "career", "jobs", "job", "hiring", "talent", "recruitment"}
+_HOMOGLYPH_TRANSLATION = str.maketrans({
+    "0": "o", "1": "l", "|": "l", "3": "e", "5": "s",
+    "а": "a", "ɑ": "a", "е": "e", "ε": "e", "о": "o", "ο": "o",
+    "р": "p", "ρ": "p", "с": "c", "ϲ": "c", "х": "x", "χ": "x",
+    "у": "y", "і": "i", "ι": "i", "ӏ": "l", "к": "k", "м": "m",
+    "т": "t", "в": "b", "н": "h",
+})
+
+
+def _domain_brand_label(domain: str) -> str:
+    """Return the likely registrant label for common public suffix formats."""
+    host = _extract_domain_from_url(domain).rstrip(".")
+    labels = host.split(".")
+    if len(labels) < 2:
+        return labels[0]
+    suffix = ".".join(labels[-2:])
+    return labels[-3] if suffix in _COMPOUND_PUBLIC_SUFFIXES and len(labels) >= 3 else labels[-2]
+
+
+def _registrable_domain(domain: str) -> str:
+    """Return the registrable domain so legitimate subdomains compare as one site."""
+    host = _extract_domain_from_url(domain).rstrip(".")
+    labels = host.split(".")
+    if len(labels) < 2:
+        return host
+    suffix = ".".join(labels[-2:])
+    label_count = 3 if suffix in _COMPOUND_PUBLIC_SUFFIXES else 2
+    return ".".join(labels[-label_count:])
+
+
+def _levenshtein_distance(left: str, right: str) -> int:
+    """Compute edit distance for short domain labels without another dependency."""
+    if len(left) < len(right):
+        left, right = right, left
+    previous = list(range(len(right) + 1))
+    for left_index, left_char in enumerate(left, start=1):
+        current = [left_index]
+        for right_index, right_char in enumerate(right, start=1):
+            current.append(min(
+                current[-1] + 1,
+                previous[right_index] + 1,
+                previous[right_index - 1] + (left_char != right_char),
+            ))
+        previous = current
+    return previous[-1]
+
+
+def _lookalike_reason(claimed_domain: str, official_domain: str) -> Optional[str]:
+    """Detect close-spelling, homoglyph, and brand-plus-job-word domain imitations."""
+    claimed_host = _extract_domain_from_url(claimed_domain).rstrip(".")
+    official_host = _extract_domain_from_url(official_domain).rstrip(".")
+    if claimed_host == official_host or claimed_host.endswith("." + official_host):
+        return None
+
+    claimed_label = _domain_brand_label(claimed_host)
+    official_label = _domain_brand_label(official_host)
+    claimed_skeleton = claimed_label.translate(_HOMOGLYPH_TRANSLATION)
+    official_skeleton = official_label.translate(_HOMOGLYPH_TRANSLATION)
+
+    if claimed_skeleton == official_skeleton:
+        return "uses characters that resemble the official company domain"
+    if claimed_label.startswith("xn--"):
+        return "uses an internationalized domain label that may visually imitate the official domain"
+
+    words = claimed_label.split("-")
+    while words and words[-1] in _BRAND_DOMAIN_SUFFIXES:
+        words.pop()
+    if "".join(words) == official_label.replace("-", ""):
+        return "adds job or recruiting words to the company name in a different domain"
+
+    distance = _levenshtein_distance(claimed_skeleton, official_skeleton)
+    longest = max(len(claimed_skeleton), len(official_skeleton))
+    similarity = 1 - distance / longest if longest else 1
+    if distance <= 1 and longest >= 5 or distance <= 2 and longest >= 9 and similarity >= 0.82:
+        return f"has a spelling only {distance} character change(s) from the official domain"
+    return None
+
+
+async def _lookup_domain_age_days(domain: str) -> Optional[int]:
+    """Look up registration age through public RDAP; unavailable data is ignored."""
+    host = _extract_domain_from_url(domain).rstrip(".")
+    if not host or host.startswith("xn--") or host in FREE_EMAIL_DOMAINS:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=4.0, follow_redirects=True) as client:
+            response = await client.get(f"https://rdap.org/domain/{urllib.parse.quote(host, safe='')}")
+            response.raise_for_status()
+            payload = response.json()
+        registered = next(
+            event.get("eventDate")
+            for event in payload.get("events", [])
+            if event.get("eventAction", "").lower() in {"registration", "registered"}
+            and event.get("eventDate")
+        )
+        registered_at = datetime.fromisoformat(registered.replace("Z", "+00:00"))
+        if registered_at.tzinfo is None:
+            registered_at = registered_at.replace(tzinfo=timezone.utc)
+        return max(0, (datetime.now(timezone.utc) - registered_at).days)
+    except Exception:
+        return None
 
 
 async def check_in_text_threats(fields: ExtractedFields, raw_text: str = "") -> SignalResult:
@@ -447,6 +559,10 @@ async def check_news_fraud(fields: ExtractedFields) -> SignalResult:
 async def check_domain_match(fields: ExtractedFields) -> SignalResult:
     """Check 6: Lookalike domain & recruiter email verification."""
     claimed_domain = fields.claimed_domain
+    email_domain = fields.contact_email.rsplit("@", 1)[-1].lower() if fields.contact_email and "@" in fields.contact_email else None
+    free_email_domain = email_domain if email_domain in FREE_EMAIL_DOMAINS else (
+        claimed_domain if claimed_domain and claimed_domain.lower() in FREE_EMAIL_DOMAINS else None
+    )
     company = fields.company_name or ""
     if not company or company == "Undisclosed Company":
         company = "Company"
@@ -455,40 +571,93 @@ async def check_domain_match(fields: ExtractedFields) -> SignalResult:
     params = {"q": query}
     search_url = f"https://www.google.com/search?q={urllib.parse.quote_plus(query)}"
 
-    # 1. Critical red flag: Recruiter contacts candidate from a free webmail address
-    if claimed_domain and claimed_domain in FREE_EMAIL_DOMAINS:
+    # Search for the company's official site even if the contact email is free webmail.
+    data = await serpapi_client.search("google", params)
+    unavailable = _unavailable_search_signal(data, "Domain & Email Match", "google", query, search_url)
+    if unavailable:
+        if free_email_domain:
+            return SignalResult(
+                signal_key="domain_match",
+                signal_name="Domain & Email Match",
+                engine="google",
+                score_delta=25,
+                status="fail",
+                finding=f"Recruiter contact uses free email ({free_email_domain}); the official company-domain search was unavailable.",
+                query_used=query,
+                evidence_url=None,
+                search_url=search_url,
+                data_source="text",
+            )
+        unavailable.signal_key = "domain_match"
+        return unavailable
+    organic = data.get("organic_results", [])
+
+    candidate_domains = []
+    for item in organic:
+        link = item.get("link", "")
+        domain = _extract_domain_from_url(link)
+        # Exclude directories, social media, job boards, and Wikipedia
+        if domain and not any(skip in domain for skip in JOB_PLATFORM_DOMAINS):
+            candidate_domains.append({
+                "candidate_index": len(candidate_domains),
+                "domain": domain,
+                "link": link,
+                "title": item.get("title", "")[:300],
+                "snippet": item.get("snippet", "")[:500],
+            })
+
+    official_domain = ""
+    top_link = None
+    groq_evidence = None
+    if data.get("_source") == "live" and candidate_domains:
+        selection = await select_official_domain_with_groq(company, candidate_domains)
+        if selection:
+            official_domain, groq_evidence = selection
+            selected_candidate = next(
+                candidate for candidate in candidate_domains
+                if _extract_domain_from_url(candidate["link"]) == official_domain
+            )
+            top_link = selected_candidate["link"]
+
+    if not official_domain and candidate_domains:
+        official_domain = candidate_domains[0]["domain"]
+        top_link = candidate_domains[0]["link"]
+
+    groq_note = f" Groq selected this live result based on: \"{groq_evidence}\"." if groq_evidence else ""
+
+    claimed_clean = _extract_domain_from_url(claimed_domain) if claimed_domain else ""
+    if claimed_clean in FREE_EMAIL_DOMAINS:
+        claimed_clean = ""
+
+    domain_age = await _lookup_domain_age_days(claimed_clean) if claimed_clean else None
+    age_note = (
+        f" RDAP reports this domain was registered {domain_age} days ago; young domains deserve extra review."
+        if domain_age is not None and domain_age < 90
+        else f" RDAP reports this domain is {domain_age} days old."
+        if domain_age is not None
+        else ""
+    )
+
+    if free_email_domain:
+        official_note = (
+            f" The company's apparent official site is {official_domain}."
+            if official_domain
+            else " An official company site was not confirmed by search."
+        )
         return SignalResult(
             signal_key="domain_match",
             signal_name="Domain & Email Match",
             engine="google",
             score_delta=25,
             status="fail",
-            finding=f"High Risk: Recruiter email uses a free webmail domain (@{claimed_domain}) instead of an official company email domain.",
+            finding=f"Recruiter contact uses free email ({free_email_domain}) rather than a company address.{official_note}{groq_note}{age_note}",
             query_used=query,
-            evidence_url=None,
+            evidence_url=top_link,
             search_url=search_url,
+            data_source="text",
         )
 
-    # 2. Check corporate domain via Google search
-    data = await serpapi_client.search("google", params)
-    unavailable = _unavailable_search_signal(data, "Domain & Email Match", "google", query, search_url)
-    if unavailable:
-        unavailable.signal_key = "domain_match"
-        return unavailable
-    organic = data.get("organic_results", [])
-
-    official_domain = ""
-    top_link = None
-    for item in organic:
-        link = item.get("link", "")
-        domain = _extract_domain_from_url(link)
-        # Exclude directories, social media, job boards, and Wikipedia
-        if domain and not any(skip in domain for skip in JOB_PLATFORM_DOMAINS):
-            official_domain = domain
-            top_link = link
-            break
-
-    if not claimed_domain:
+    if not claimed_clean:
         return SignalResult(
             signal_key="domain_match",
             signal_name="Domain & Email Match",
@@ -501,37 +670,52 @@ async def check_domain_match(fields: ExtractedFields) -> SignalResult:
             search_url=search_url,
         )
 
-    # Compare claimed domain vs official domain
-    claimed_clean = _extract_domain_from_url(claimed_domain)
-    if official_domain and (claimed_clean == official_domain or claimed_clean.endswith("." + official_domain)):
+    if official_domain and (
+        _registrable_domain(claimed_clean) == _registrable_domain(official_domain)
+    ):
         return SignalResult(
             signal_key="domain_match",
             signal_name="Domain & Email Match",
             engine="google",
             score_delta=-15,
             status="pass",
-            finding=f"Claimed domain ({claimed_clean}) directly matches the verified official website ({official_domain}).",
+            finding=f"Claimed domain ({claimed_clean}) belongs to the same registered domain as the apparent official website ({official_domain}).{groq_note}{age_note}",
             query_used=query,
             evidence_url=top_link,
             search_url=search_url,
         )
 
-    # Lookalike or domain spoofing detection
     if official_domain and claimed_clean != official_domain:
-        # Check if claimed clean shares brand root or has hyphenated lookalike pattern
-        brand_stem = official_domain.split(".")[0]
-        if brand_stem in claimed_clean or len(claimed_clean.replace("-", "").replace(".", "")) > 3:
+        is_job_platform = any(
+            claimed_clean == platform or claimed_clean.endswith("." + platform)
+            for platform in JOB_PLATFORM_DOMAINS
+        )
+        lookalike_reason = None if is_job_platform else _lookalike_reason(claimed_clean, official_domain)
+        if lookalike_reason:
             return SignalResult(
                 signal_key="domain_match",
                 signal_name="Domain & Email Match",
                 engine="google",
                 score_delta=22,
                 status="fail",
-                finding=f"Lookalike Domain Alert: Posting references '{claimed_clean}', but official company website is '{official_domain}'.",
+                finding=f"Lookalike domain alert: '{claimed_clean}' {lookalike_reason}; apparent official site is '{official_domain}'.{groq_note}{age_note}",
                 query_used=query,
                 evidence_url=top_link,
                 search_url=search_url,
             )
+
+    if age_note:
+        return SignalResult(
+            signal_key="domain_match",
+            signal_name="Domain & Email Match",
+            engine="google",
+            score_delta=0,
+            status="warning",
+            finding=f"Could not confirm that '{claimed_clean}' belongs to '{company}'.{age_note}",
+            query_used=query,
+            evidence_url=top_link,
+            search_url=search_url,
+        )
 
     return SignalResult(
         signal_key="domain_match",
@@ -539,7 +723,10 @@ async def check_domain_match(fields: ExtractedFields) -> SignalResult:
         engine="google",
         score_delta=0,
         status="warning",
-        finding=f"Domain '{claimed_clean}' could not be definitively cross-referenced with top search results.",
+        finding=(
+            f"Domain '{claimed_clean}' could not be definitively cross-referenced with search results. "
+            f"Apparent official site: {official_domain or 'not found'}.{groq_note}{age_note}"
+        ),
         query_used=query,
         evidence_url=top_link,
         search_url=search_url,
@@ -611,6 +798,63 @@ async def check_recruiter_identity(fields: ExtractedFields) -> SignalResult:
         evidence_url=None,
         search_url=search_url,
     )
+
+
+async def find_linkedin_referral_leads(fields: ExtractedFields) -> List[LinkedInReferralLead]:
+    """Return public LinkedIn profile search matches tied to the named employer."""
+    company = fields.company_name or ""
+    if not company or company == "Undisclosed Company":
+        return []
+
+    query = (
+        f'site:linkedin.com/in "{company}" '
+        '(recruiter OR "talent acquisition" OR "hiring manager" OR engineer)'
+    )
+    data = await serpapi_client.search("google", {"q": query})
+    if data.get("_source") != "live":
+        return []
+
+    stopwords = {"inc", "llc", "corp", "corporation", "ltd", "limited", "group", "co", "the", "company", "services", "solutions", "agency", "staffing"}
+    company_tokens = {
+        part for part in re.findall(r"[a-z0-9]+", company.casefold())
+        if len(part) >= 3 and part not in stopwords
+    }
+    if not company_tokens:
+        return []
+
+    leads = []
+    seen_urls = set()
+    for item in data.get("organic_results", []):
+        link = item.get("link", "")
+        parsed = urllib.parse.urlparse(link if "://" in link else f"https://{link}")
+        hostname = (parsed.hostname or "").lower()
+        if hostname != "linkedin.com" and not hostname.endswith(".linkedin.com"):
+            continue
+        if not parsed.path.lower().startswith("/in/"):
+            continue
+
+        title = item.get("title", "").strip()
+        snippet = item.get("snippet", "").strip()
+        evidence = f"{title} {snippet}".strip()
+        evidence_tokens = set(re.findall(r"[a-z0-9]+", evidence.casefold()))
+        if not company_tokens.issubset(evidence_tokens):
+            continue
+
+        profile_url = f"https://www.linkedin.com{parsed.path.rstrip('/')}"
+        if profile_url in seen_urls:
+            continue
+        seen_urls.add(profile_url)
+        name = title.split("|", 1)[0].strip() or "LinkedIn profile"
+        leads.append(LinkedInReferralLead(
+            name=name[:160],
+            headline=snippet[:300],
+            profile_url=profile_url,
+            search_evidence=evidence[:500],
+        ))
+        if len(leads) == 5:
+            break
+
+    return leads
 
 
 async def evaluate_all_signals(fields: ExtractedFields, raw_text: str = "") -> List[SignalResult]:

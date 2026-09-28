@@ -7,7 +7,7 @@ from app.config import settings
 from app.models import CheckRequest, CheckResponse
 from app.extraction import extract_fields
 from app.groq_analysis import assess_with_groq
-from app.signals import evaluate_all_signals
+from app.signals import evaluate_all_signals, find_linkedin_referral_leads
 from app.scoring import calculate_risk_score
 from app.cache import cache
 
@@ -92,6 +92,9 @@ async def check_posting(request: CheckRequest):
 
     # Optional Groq second opinion; kept separate from the uncalibrated numeric score.
     groq_decision = await assess_with_groq(request.raw_text, signals)
+    linkedin_referral_leads = []
+    if groq_decision and groq_decision.recommendation == "apply":
+        linkedin_referral_leads = await find_linkedin_referral_leads(extracted)
 
     # Surface demo mode and provider failures instead of presenting them as live evidence.
     is_mock = (
@@ -109,6 +112,7 @@ async def check_posting(request: CheckRequest):
         extracted_fields=extracted,
         signals=signals,
         groq_decision=groq_decision,
+        linkedin_referral_leads=linkedin_referral_leads,
         summary=summary,
         is_mock=is_mock,
         execution_time_seconds=elapsed,

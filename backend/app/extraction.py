@@ -32,15 +32,15 @@ def extract_with_regex(raw_text: str) -> ExtractedFields:
     )
     if domain_header_match:
         claimed_domain = domain_header_match.group(1).lower()
-    elif contact_email:
-        domain_part = contact_email.split("@")[-1]
-        claimed_domain = domain_part.lower()
     else:
         url_match = re.search(
             r"https?://(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z]{2,})(?:/[^\s]*)?", cleaned
         )
         if url_match:
             claimed_domain = url_match.group(1).lower()
+        elif contact_email:
+            domain_part = contact_email.split("@")[-1]
+            claimed_domain = domain_part.lower()
 
     # 3. Company Name
     company_name: Optional[str] = None
@@ -160,6 +160,14 @@ def _grounded_llm_fields(data: dict, raw_text: str, fallback: ExtractedFields, m
         "distinctive_phrase": grounded_value("distinctive_phrase") or fallback.distinctive_phrase,
         "job_title": grounded_value("job_title") or fallback.job_title,
     }
+    email_domain = values["contact_email"].rsplit("@", 1)[-1].lower() if values["contact_email"] and "@" in values["contact_email"] else None
+    if (
+        email_domain
+        and values["claimed_domain"] == email_domain
+        and fallback.claimed_domain
+        and fallback.claimed_domain.lower() != email_domain
+    ):
+        values["claimed_domain"] = fallback.claimed_domain
     used_model_value = any(
         grounded_value(field) is not None
         for field in (
@@ -184,7 +192,8 @@ async def _extract_with_groq(raw_text: str) -> ExtractedFields:
         "Do not infer, correct, or invent names, emails, domains, titles, or phrases. "
         "For missing values return null. Return a JSON object with exactly these keys: "
         "company_name, recruiter_name, claimed_domain, contact_email, job_title, distinctive_phrase. "
-        "distinctive_phrase must be an exact short phrase copied from the posting."
+        "claimed_domain means the advertised company or careers website domain, not the email provider; "
+        "if no website is listed, return null. distinctive_phrase must be an exact short phrase copied from the posting."
     )
     async with httpx.AsyncClient(timeout=20.0) as client:
         response = await client.post(

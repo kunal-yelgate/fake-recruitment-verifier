@@ -1,6 +1,7 @@
 """Unit tests targeting accuracy edge cases, false-positive protection, and in-text threat scanning."""
 
 import pytest
+from datetime import datetime, timedelta, timezone
 from app.models import ExtractedFields
 from app.signals import (
     check_in_text_threats,
@@ -9,6 +10,9 @@ from app.signals import (
     check_company_footprint,
     check_linkedin_presence,
     evaluate_all_signals,
+    _lookalike_reason,
+    _lookup_domain_age_days,
+    find_linkedin_referral_leads,
 )
 
 
@@ -82,6 +86,192 @@ async def test_domain_match_job_board_exclusion(monkeypatch):
     assert result.status == "pass"
     assert result.score_delta == -15
     assert "acmetech.com" in result.finding
+
+
+def test_lookalike_domain_detects_edit_distance_and_homoglyphs():
+    assert _lookalike_reason("paypa1.com", "paypal.com") is not None
+    assert _lookalike_reason("pаypal.com", "paypal.com") is not None
+    assert _lookalike_reason("paypal.com", "paypal.com") is None
+
+
+@pytest.mark.asyncio
+async def test_rdap_domain_age_is_reported_without_scoring(monkeypatch):
+    registered = (datetime.now(timezone.utc) - timedelta(days=42)).isoformat()
+
+    class FakeResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"events": [{"eventAction": "registration", "eventDate": registered}]}
+
+    class FakeAsyncClient:
+        def __init__(self, timeout, follow_redirects):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def get(self, url):
+            assert url.endswith("/domain/new-company.example")
+            return FakeResponse()
+
+    from app import signals
+    monkeypatch.setattr(signals.httpx, "AsyncClient", FakeAsyncClient)
+
+    age_days = await _lookup_domain_age_days("new-company.example")
+
+    assert age_days is not None
+    assert 41 <= age_days <= 42
+
+
+@pytest.mark.asyncio
+async def test_free_email_still_checks_company_domain(monkeypatch):
+    fields = ExtractedFields(
+        company_name="Acme Example",
+        contact_email="recruiter@gmail.com",
+        claimed_domain="acme-example.com",
+    )
+    search_queries = []
+
+    async def mock_search(engine, params):
+        search_queries.append(params["q"])
+        return {
+            "organic_results": [
+                {"link": "https://acme-example.com", "title": "Acme Example official site"}
+            ]
+        }
+
+    from app import signals
+    monkeypatch.setattr(signals.serpapi_client, "search", mock_search)
+    monkeypatch.setattr(signals, "_lookup_domain_age_days", _no_domain_age)
+
+    result = await check_domain_match(fields)
+
+    assert search_queries
+    assert result.score_delta == 25
+    assert "gmail.com" in result.finding
+    assert "acme-example.com" in result.finding
+
+
+@pytest.mark.asyncio
+async def test_domain_signal_flags_typo_of_official_domain(monkeypatch):
+    fields = ExtractedFields(company_name="PayPal", claimed_domain="paypa1.com")
+
+    async def mock_search(engine, params):
+        return {"organic_results": [{"link": "https://paypal.com", "title": "PayPal"}]}
+
+    from app import signals
+    monkeypatch.setattr(signals.serpapi_client, "search", mock_search)
+    monkeypatch.setattr(signals, "_lookup_domain_age_days", _no_domain_age)
+
+    result = await check_domain_match(fields)
+
+    assert result.score_delta == 22
+    assert result.status == "fail"
+    assert "lookalike" in result.finding.lower()
+
+
+@pytest.mark.asyncio
+async def test_domain_signal_uses_groq_selected_live_candidate(monkeypatch):
+    fields = ExtractedFields(company_name="Acme Labs", claimed_domain="acme-jobs.example")
+
+    async def mock_search(engine, params):
+        return {
+            "_source": "live",
+            "organic_results": [
+                {
+                    "link": "https://unrelated.example",
+                    "title": "Acme listings directory",
+                    "snippet": "Third-party job listings",
+                },
+                {
+                    "link": "https://www.acmelabs.example/about",
+                    "title": "Acme Labs | Official Company Website",
+                    "snippet": "About Acme Labs",
+                },
+            ],
+        }
+
+    async def mock_groq_selection(company, candidates):
+        assert company == "Acme Labs"
+        assert len(candidates) == 2
+        return "acmelabs.example", "Acme Labs | Official Company Website"
+
+    from app import signals
+    monkeypatch.setattr(signals.serpapi_client, "search", mock_search)
+    monkeypatch.setattr(signals, "select_official_domain_with_groq", mock_groq_selection)
+    monkeypatch.setattr(signals, "_lookup_domain_age_days", _no_domain_age)
+
+    result = await check_domain_match(fields)
+
+    assert result.evidence_url == "https://www.acmelabs.example/about"
+    assert "acmelabs.example" in result.finding
+    assert "Groq selected this live result" in result.finding
+
+
+@pytest.mark.asyncio
+async def test_linkedin_referral_leads_require_live_company_matched_profiles(monkeypatch):
+    fields = ExtractedFields(company_name="Acme Labs")
+
+    async def mock_search(engine, params):
+        assert 'site:linkedin.com/in "Acme Labs"' in params["q"]
+        return {
+            "_source": "live",
+            "organic_results": [
+                {
+                    "link": "https://www.linkedin.com/in/jane-smith?trk=search",
+                    "title": "Jane Smith - Recruiter at Acme Labs | LinkedIn",
+                    "snippet": "Talent acquisition at Acme Labs.",
+                },
+                {
+                    "link": "https://www.linkedin.com/in/other-person",
+                    "title": "Alex Doe - Recruiter",
+                    "snippet": "Works at Other Company.",
+                },
+                {
+                    "link": "https://linkedin.com.evil.example/in/fake",
+                    "title": "Fake - Acme Labs recruiter",
+                    "snippet": "Acme Labs",
+                },
+            ],
+        }
+
+    from app import signals
+    monkeypatch.setattr(signals.serpapi_client, "search", mock_search)
+
+    leads = await find_linkedin_referral_leads(fields)
+
+    assert len(leads) == 1
+    assert leads[0].name.startswith("Jane Smith")
+    assert leads[0].profile_url == "https://www.linkedin.com/in/jane-smith"
+
+
+@pytest.mark.asyncio
+async def test_linkedin_referral_search_ignores_mock_results(monkeypatch):
+    fields = ExtractedFields(company_name="Acme Labs")
+
+    async def mock_search(engine, params):
+        return {
+            "_source": "mock",
+            "organic_results": [{
+                "link": "https://www.linkedin.com/in/fake-person",
+                "title": "Fake Person - Recruiter at Acme Labs",
+                "snippet": "Recruiter at Acme Labs",
+            }],
+        }
+
+    from app import signals
+    monkeypatch.setattr(signals.serpapi_client, "search", mock_search)
+
+    assert await find_linkedin_referral_leads(fields) == []
+
+
+async def _no_domain_age(domain):
+    return None
 
 
 @pytest.mark.asyncio
