@@ -129,7 +129,9 @@ async def assess_with_groq(
         "exact evidence_quotes copied from the posting or supplied findings. Do not promise safety."
     )
     user_prompt = (
-        f"Posting text:\n{raw_text[:6000]}\n\n"
+        "BEGIN_UNTRUSTED_POSTING\n"
+        f"{raw_text[:6000]}\n"
+        "END_UNTRUSTED_POSTING\n\n"
         f"Live search and text-check findings (JSON):\n{evidence_payload}\n\n"
         "Return verify_before_applying if there are no useful live search findings."
     )

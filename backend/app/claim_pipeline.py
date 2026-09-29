@@ -138,7 +138,15 @@ async def extract_claims(raw_text: str, fields: ExtractedFields) -> list[Verifia
         "and source_quote must be copied from the posting. Return JSON {\"claims\": [...]} with claim_id, "
         "claim_type, text, value, source_quote, importance."
     )
-    data = await _groq_json(prompt, f"Posting:\n{raw_text[:8000]}", 1200)
+    data = await _groq_json(
+        prompt,
+        (
+            "BEGIN_UNTRUSTED_POSTING\n"
+            f"{raw_text[:8000]}\n"
+            "END_UNTRUSTED_POSTING"
+        ),
+        1200,
+    )
     claims = _grounded_claims(data or {}, raw_text)
     return claims or _fallback_claims(raw_text, fields)
 

@@ -1,8 +1,11 @@
 """FastAPI application entrypoint for Fake Recruiter Verifier."""
 
 import time
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from app.config import settings
 from app.models import CheckRequest, CheckResponse
 from app.extraction import extract_fields
@@ -31,6 +34,9 @@ The API does not make a legal determination or guarantee that a recruiter is saf
 """,
     version="1.0.0",
 )
+limiter = Limiter(key_func=get_remote_address, default_limits=[])
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Enable CORS for development frontend
 app.add_middleware(
@@ -66,7 +72,8 @@ async def cache_stats():
 
 
 @app.post("/check", response_model=CheckResponse)
-async def check_posting(request: CheckRequest):
+@limiter.limit(settings.rate_limit)
+async def check_posting(request: Request, payload: CheckRequest):
     """
     Analyze one user-provided job posting or recruiter message.
 
@@ -79,14 +86,14 @@ async def check_posting(request: CheckRequest):
     """
     start_time = time.time()
 
-    if not request.raw_text or len(request.raw_text.strip()) < 10:
+    if not payload.raw_text or len(payload.raw_text.strip()) < 10:
         raise HTTPException(status_code=400, detail="Job posting text is too short to evaluate.")
 
     # Step 1: Structured extraction (Anthropic LLM or regex fallback)
-    extracted = await extract_fields(request.raw_text)
+    extracted = await extract_fields(payload.raw_text)
 
     # Step 2: Extract claims, plan bounded searches, judge evidence, and retain an audit trail.
-    claim_audit, signals = await run_claim_pipeline(request.raw_text, extracted)
+    claim_audit, signals = await run_claim_pipeline(payload.raw_text, extracted)
 
     # Step 3: Compute weighted score and verdict
     risk_score, verdict, verdict_badge, summary = calculate_risk_score(signals)
@@ -96,7 +103,7 @@ async def check_posting(request: CheckRequest):
     )
 
     # Optional Groq second opinion; kept separate from the uncalibrated numeric score.
-    groq_decision = await assess_with_groq(request.raw_text, signals)
+    groq_decision = await assess_with_groq(payload.raw_text, signals)
     linkedin_referral_leads = []
     if groq_decision and groq_decision.recommendation == "apply":
         linkedin_referral_leads = await find_linkedin_referral_leads(extracted)
@@ -106,6 +113,15 @@ async def check_posting(request: CheckRequest):
         not bool(settings.serpapi_key and settings.serpapi_key.strip() not in ("", "your_serpapi_key_here"))
         or any(signal.data_source == "mock" for signal in signals)
     )
+    is_demo_only = is_mock or any(signal.data_source == "error" for signal in signals)
+    if is_demo_only:
+        verdict = "Unverified"
+        verdict_badge = "warning"
+        summary = (
+            "Live verification was not completed. This demo/unavailable result is "
+            "not an authoritative scam or legitimacy verdict. "
+            f"{summary}"
+        )
 
     elapsed = round(time.time() - start_time, 3)
 
@@ -121,6 +137,8 @@ async def check_posting(request: CheckRequest):
         linkedin_referral_leads=linkedin_referral_leads,
         summary=summary,
         is_mock=is_mock,
+        score_is_authoritative=not is_demo_only,
+        is_demo_only=is_demo_only,
         execution_time_seconds=elapsed,
     )
 

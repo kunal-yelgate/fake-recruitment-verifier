@@ -259,7 +259,10 @@ async def _extract_with_groq(raw_text: str) -> ExtractedFields:
                 "response_format": {"type": "json_object"},
                 "messages": [
                     {"role": "system", "content": prompt},
-                    {"role": "user", "content": raw_text[:6000]},
+                    {
+                        "role": "user",
+                        "content": f"BEGIN_UNTRUSTED_POSTING\n{raw_text[:6000]}\nEND_UNTRUSTED_POSTING",
+                    },
                 ],
             },
         )
@@ -268,7 +271,8 @@ async def _extract_with_groq(raw_text: str) -> ExtractedFields:
     data = json.loads(content)
     if not isinstance(data, dict):
         raise ValueError("Groq extraction response must be a JSON object")
-    return _grounded_llm_fields(data, raw_text, fallback, "groq")
+    validated = ExtractedFields.model_validate({**data, "extraction_method": "groq"})
+    return _grounded_llm_fields(validated.model_dump(), raw_text, fallback, "groq")
 
 
 async def extract_fields(raw_text: str) -> ExtractedFields:
@@ -309,12 +313,21 @@ async def extract_fields(raw_text: str) -> ExtractedFields:
             max_tokens=300,
             temperature=0.0,
             messages=[
-                {"role": "user", "content": f"{prompt}\n\nJob Posting:\n{raw_text[:2500]}"}
+                {
+                    "role": "user",
+                    "content": (
+                        f"{prompt}\n\nBEGIN_UNTRUSTED_POSTING\n"
+                        f"{raw_text[:2500]}\nEND_UNTRUSTED_POSTING"
+                    ),
+                }
             ],
         )
 
         response_text = message.content[0].text.strip()
         data = json.loads(response_text)
+        if not isinstance(data, dict):
+            raise ValueError("Anthropic extraction response must be a JSON object")
+        data = ExtractedFields.model_validate({**data, "extraction_method": "llm"}).model_dump()
         fallback = extract_with_regex(raw_text)
         return _grounded_llm_fields(data, raw_text, fallback, "llm")
     except Exception:

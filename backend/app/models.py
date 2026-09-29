@@ -9,6 +9,7 @@ class CheckRequest(BaseModel):
     raw_text: str = Field(
         ...,
         min_length=10,
+        max_length=10_000,
         description="Raw text of the job posting or recruiter message to analyze.",
     )
 
@@ -128,7 +129,10 @@ class CheckResponse(BaseModel):
         le=100,
         description="Heuristic risk score from 0 (lower risk signals) to 100 (higher risk signals); not a fraud probability.",
     )
-    verdict: str = Field(..., description="'Likely Scam', 'Caution', or 'Likely Legitimate'")
+    verdict: str = Field(
+        ...,
+        description="'Likely Scam', 'Caution', 'Likely Legitimate', or 'Unverified' when live checks are unavailable",
+    )
     verdict_badge: str = Field(..., description="'danger', 'warning', or 'success'")
     base_score: int = Field(50, description="Starting neutral baseline score")
     extracted_fields: ExtractedFields
@@ -147,4 +151,12 @@ class CheckResponse(BaseModel):
     )
     summary: str = Field(..., description="High-level narrative explaining the risk score")
     is_mock: bool = Field(False, description="True if any search signal used simulated mock data")
+    score_is_authoritative: bool = Field(
+        True,
+        description="False when the score depends on simulated or unavailable provider evidence.",
+    )
+    is_demo_only: bool = Field(
+        False,
+        description="True when live provider verification was not completed.",
+    )
     execution_time_seconds: float = Field(..., description="Total processing time in seconds")

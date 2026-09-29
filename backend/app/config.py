@@ -15,7 +15,8 @@ class Settings(BaseSettings):
     # Server configuration
     host: str = "0.0.0.0"
     port: int = 8000
-    debug: bool = True
+    debug: bool = False
+    rate_limit: str = "5/minute"
 
     # Cache configuration
     cache_db_path: str = "app_cache.db"

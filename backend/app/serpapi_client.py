@@ -19,19 +19,21 @@ class SerpApiClient:
 
         # 1. Check local SQLite cache first (24h TTL)
         cached_result = cache.get(engine, search_params)
-        if cached_result is not None:
+        if (
+            cached_result is not None
+            and not cached_result.get("_is_mock")
+            and not cached_result.get("_api_error")
+        ):
             cached_result.setdefault(
                 "_source",
                 "mock" if cached_result.get("_is_mock") else "error" if cached_result.get("_api_error") else "live",
             )
             return cached_result
 
-        # 2. If no API key is provided, return simulated live search responses
+        # 2. If no API key is provided, return simulated responses without caching them.
         if not self.api_key or self.api_key.strip() in ("", "your_serpapi_key_here"):
             mock_data = self._generate_mock_response(engine, params)
             mock_data["_source"] = "mock"
-            # Cache mock data as well for repeat demo tests
-            cache.set(engine, search_params, mock_data)
             return mock_data
 
         # 3. Call live SerpApi HTTP API
@@ -46,7 +48,7 @@ class SerpApiClient:
                 cache.set(engine, search_params, data)
                 return data
             except httpx.HTTPStatusError as exc:
-                # If unauthorized/quota exhausted, fall back to mock with warning
+                # If unauthorized/quota exhausted, return demo data with warning.
                 mock_data = self._generate_mock_response(engine, params)
                 mock_data["_api_error"] = f"SerpApi HTTP {exc.response.status_code}: {exc.response.text}"
                 mock_data["_source"] = "error"
