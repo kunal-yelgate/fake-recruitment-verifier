@@ -1,5 +1,11 @@
 import React from "react";
 import {
+  Show,
+  SignInButton,
+  SignUpButton,
+  UserButton,
+} from "@clerk/react";
+import {
   ShieldCheck,
   Sun,
   Moon,
@@ -53,6 +59,22 @@ export function Navbar({
                   : "Engine offline"}
             </span>
           </div>
+
+          <Show when="signed-out">
+            <SignInButton mode="modal">
+              <Button variant="outline" size="sm">
+                Sign in
+              </Button>
+            </SignInButton>
+            <SignUpButton mode="modal">
+              <Button size="sm" className="hidden sm:inline-flex">
+                Sign up
+              </Button>
+            </SignUpButton>
+          </Show>
+          <Show when="signed-in">
+            <UserButton />
+          </Show>
 
           {/* History Button */}
           <Button
