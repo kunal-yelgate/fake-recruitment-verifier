@@ -12,6 +12,25 @@ def test_check_request_rejects_oversized_postings():
         CheckRequest(raw_text="x" * 10_001)
 
 
+def test_check_request_accepts_posting_under_limit():
+    request = CheckRequest(raw_text="x" * 9_999)
+
+    assert len(request.raw_text) == 9_999
+
+
+@pytest.mark.parametrize(
+    "raw_text, message",
+    [
+        ("", "cannot be empty"),
+        (" " * 10, "cannot be empty"),
+        ("x" * 9, "at least 10 characters"),
+    ],
+)
+def test_check_request_rejects_empty_or_too_short_postings(raw_text, message):
+    with pytest.raises(ValidationError, match=message):
+        CheckRequest(raw_text=raw_text)
+
+
 @pytest.mark.asyncio
 async def test_mock_serpapi_results_are_not_cached(monkeypatch):
     writes = []

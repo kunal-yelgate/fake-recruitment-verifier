@@ -1,7 +1,7 @@
 """Pydantic schemas for request, response, and intermediate verification data."""
 
 from typing import List, Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class CheckRequest(BaseModel):
@@ -12,6 +12,16 @@ class CheckRequest(BaseModel):
         max_length=10_000,
         description="Raw text of the job posting or recruiter message to analyze.",
     )
+
+    @field_validator("raw_text", mode="before")
+    @classmethod
+    def validate_raw_text(cls, value: str) -> str:
+        """Reject blank or whitespace-only postings before pipeline execution."""
+        if not value.strip():
+            raise ValueError("Job posting text cannot be empty.")
+        if len(value.strip()) < 10:
+            raise ValueError("Job posting text must contain at least 10 characters.")
+        return value
 
 
 class ExtractedFields(BaseModel):
