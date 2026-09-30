@@ -186,3 +186,14 @@ async def test_metrics_endpoint_is_prometheus_compatible():
 
     assert response.status_code == 200
     assert "truerecruit_cache_hits_total" in response.text
+
+
+@pytest.mark.asyncio
+async def test_request_id_is_returned_without_logging_request_content():
+    from httpx import ASGITransport, AsyncClient
+    from app.main import app
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/health", headers={"X-Request-ID": "test-request-123"})
+
+    assert response.headers["X-Request-ID"] == "test-request-123"

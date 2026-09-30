@@ -2,6 +2,7 @@
 
 import time
 import logging
+import uuid
 import jwt
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -67,6 +68,16 @@ The API does not make a legal determination or guarantee that a recruiter is saf
 """,
     version="1.0.0",
 )
+
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    """Attach a correlation ID without logging request text or credentials."""
+    request_id = request.headers.get("x-request-id") or uuid.uuid4().hex
+    request.state.request_id = request_id
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
 limiter = Limiter(key_func=get_remote_address, default_limits=[])
 app.state.limiter = limiter
 
