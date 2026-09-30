@@ -169,4 +169,8 @@ class CheckResponse(BaseModel):
         False,
         description="True when live provider verification was not completed.",
     )
+    data_quality: Literal["live", "partial", "demo"] = Field(
+        "demo",
+        description="Overall evidence quality: all live, mixed/partially unavailable, or demo/unavailable.",
+    )
     execution_time_seconds: float = Field(..., description="Total processing time in seconds")

@@ -93,6 +93,7 @@ def test_fastapi_check_endpoint():
             assert data["risk_score"] >= 65
             assert data["verdict"] == "Unverified"
             assert data["is_demo_only"] is True
+            assert data["data_quality"] == "demo"
             assert data["score_is_authoritative"] is False
             assert data["signals"]
             assert data["claim_audit"]["claims"]
