@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from app import serpapi_client as serpapi_module
 from app.models import CheckRequest
 from app.serpapi_client import SerpApiClient
+from app.cache import QueryCache
 from app.main import app as fastapi_app
 from app.main import rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -58,6 +59,20 @@ async def test_rate_limit_response_includes_retry_after():
 
     assert response.status_code == 429
     assert response.headers["Retry-After"] == "60"
+
+
+@pytest.mark.asyncio
+async def test_check_requires_authentication(monkeypatch):
+    from httpx import ASGITransport, AsyncClient
+    from app.main import app
+
+    monkeypatch.setattr("app.config.settings.require_auth", True)
+    monkeypatch.setattr("app.config.settings.clerk_jwt_key", None)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/check", json={"raw_text": "A valid enough posting text."})
+
+    assert response.status_code == 401
+    assert "sign in" in response.json()["detail"].lower()
 
 
 @pytest.mark.asyncio
@@ -140,3 +155,22 @@ async def test_mock_mode_keeps_clean_and_gibberish_postings_neutral():
         await evaluate_all_signals(gibberish_fields, gibberish)
     )
     assert verdict == "Insufficient information"
+
+
+def test_cache_keys_and_storage_exclude_provider_failures(tmp_path):
+    query_cache = QueryCache(str(tmp_path / "cache.db"), ttl_hours=24)
+    params = {"q": "company", "api_key": "super-secret"}
+
+    key = query_cache.compute_key("google", params)
+    assert "super-secret" not in key
+
+    query_cache.set("google", params, {"_source": "error", "_api_error": "quota"})
+    assert query_cache.get("google", params) is None
+
+
+def test_cache_expired_entries_are_removed(tmp_path):
+    query_cache = QueryCache(str(tmp_path / "cache.db"), ttl_hours=0)
+    params = {"q": "expired"}
+    query_cache.set("google", params, {"organic_results": []})
+
+    assert query_cache.get("google", params) is None

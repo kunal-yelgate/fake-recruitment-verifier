@@ -1,6 +1,7 @@
 """FastAPI application entrypoint for Fake Recruiter Verifier."""
 
 import time
+import logging
 import jwt
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -16,6 +17,8 @@ from app.claim_pipeline import run_claim_pipeline, write_cited_explanation
 from app.signals import find_linkedin_referral_leads
 from app.scoring import calculate_risk_score
 from app.cache import cache
+
+logger = logging.getLogger(__name__)
 
 
 def require_authenticated_user(request: Request) -> dict:
@@ -82,7 +85,11 @@ app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 # Enable CORS for development frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins,
+    allow_origins=[
+        origin.strip()
+        for origin in settings.cors_origins.split(",")
+        if origin.strip()
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -131,24 +138,34 @@ async def check_posting(request: Request, payload: CheckRequest):
     if not payload.raw_text or len(payload.raw_text.strip()) < 10:
         raise HTTPException(status_code=400, detail="Job posting text is too short to evaluate.")
 
-    # Step 1: Structured extraction (Anthropic LLM or regex fallback)
-    extracted = await extract_fields(payload.raw_text)
+    try:
+        # Step 1: Structured extraction (Anthropic LLM or regex fallback)
+        extracted = await extract_fields(payload.raw_text)
 
-    # Step 2: Extract claims, plan bounded searches, judge evidence, and retain an audit trail.
-    claim_audit, signals = await run_claim_pipeline(payload.raw_text, extracted)
+        # Step 2: Extract claims, plan bounded searches, judge evidence, and retain an audit trail.
+        claim_audit, signals = await run_claim_pipeline(payload.raw_text, extracted)
 
-    # Step 3: Compute weighted score and verdict
-    risk_score, verdict, verdict_badge, summary = calculate_risk_score(signals)
-    claim_audit.explanation = await write_cited_explanation(
-        claim_audit.judgments,
-        risk_score,
-    )
+        # Step 3: Compute weighted score and verdict
+        risk_score, verdict, verdict_badge, summary = calculate_risk_score(signals)
+        claim_audit.explanation = await write_cited_explanation(
+            claim_audit.judgments,
+            risk_score,
+        )
 
-    # Optional Groq second opinion; kept separate from the uncalibrated numeric score.
-    groq_decision = await assess_with_groq(payload.raw_text, signals)
-    linkedin_referral_leads = []
-    if groq_decision and groq_decision.recommendation == "apply":
-        linkedin_referral_leads = await find_linkedin_referral_leads(extracted)
+        # Optional Groq second opinion; kept separate from the uncalibrated numeric score.
+        groq_decision = await assess_with_groq(payload.raw_text, signals)
+        linkedin_referral_leads = []
+        if groq_decision and groq_decision.recommendation == "apply":
+            linkedin_referral_leads = await find_linkedin_referral_leads(extracted)
+    except Exception as exc:
+        logger.exception("Verification pipeline failed: %s", type(exc).__name__)
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "code": "verification_unavailable",
+                "message": "Verification is temporarily unavailable. Please try again.",
+            },
+        ) from exc
 
     # Surface demo mode and provider failures instead of presenting them as live evidence.
     is_mock = (

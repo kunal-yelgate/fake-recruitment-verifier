@@ -70,6 +70,8 @@ class QueryCache:
 
     def set(self, engine: str, params: Dict[str, Any], data: Dict[str, Any]):
         """Save a SerpApi response with current timestamp."""
+        if data.get("_source") in {"mock", "error"} or data.get("_api_error") or data.get("_is_mock"):
+            return
         key = self.compute_key(engine, params)
         now = time.time()
         try:

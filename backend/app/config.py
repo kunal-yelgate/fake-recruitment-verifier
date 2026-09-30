@@ -16,7 +16,7 @@ class Settings(BaseSettings):
     require_auth: bool = True
 
     # Server configuration
-    host: str = "0.0.0.0"
+    host: str = "127.0.0.1"
     port: int = 8000
     debug: bool = False
     rate_limit_per_min: int = 10
@@ -26,10 +26,9 @@ class Settings(BaseSettings):
     cache_ttl_hours: int = 24
 
     # Allow CORS origins (development + common frontend ports)
-    cors_origins: list[str] = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ]
+    cors_origins: str = (
+        "http://localhost:5173,http://127.0.0.1:5173"
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",

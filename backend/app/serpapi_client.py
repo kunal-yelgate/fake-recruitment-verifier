@@ -1,6 +1,7 @@
 """Async HTTP client for SerpApi with SQLite query caching and demo mock fallback."""
 
 import asyncio
+import logging
 from typing import Any, Dict, Optional
 import httpx
 from app.config import settings
@@ -39,25 +40,50 @@ class SerpApiClient:
         # 3. Call live SerpApi HTTP API
         request_params = {**search_params, "api_key": self.api_key}
         async with httpx.AsyncClient(timeout=15.0) as client:
-            try:
-                response = await client.get(SERPAPI_ENDPOINT, params=request_params)
-                response.raise_for_status()
-                data = response.json()
-                data["_is_mock"] = False
-                data["_source"] = "live"
-                cache.set(engine, search_params, data)
-                return data
-            except httpx.HTTPStatusError as exc:
-                # If unauthorized/quota exhausted, return demo data with warning.
-                mock_data = self._generate_mock_response(engine, params)
-                mock_data["_api_error"] = f"SerpApi HTTP {exc.response.status_code}: {exc.response.text}"
-                mock_data["_source"] = "error"
-                return mock_data
-            except Exception as exc:
-                mock_data = self._generate_mock_response(engine, params)
-                mock_data["_api_error"] = str(exc)
-                mock_data["_source"] = "error"
-                return mock_data
+            for attempt in range(3):
+                try:
+                    response = await client.get(SERPAPI_ENDPOINT, params=request_params)
+                    response.raise_for_status()
+                    data = response.json()
+                    if not isinstance(data, dict):
+                        raise ValueError("SerpApi response was not a JSON object")
+                    data["_is_mock"] = False
+                    data["_source"] = "live"
+                    cache.set(engine, search_params, data)
+                    return data
+                except httpx.HTTPStatusError as exc:
+                    if exc.response.status_code == 401 or (
+                        exc.response.status_code < 500
+                        and exc.response.status_code != 429
+                    ):
+                        return self._error_response(
+                            engine, params, f"SerpApi HTTP {exc.response.status_code}"
+                        )
+                    if attempt < 2:
+                        await asyncio.sleep(2**attempt)
+                        continue
+                    return self._error_response(
+                        engine, params, f"SerpApi HTTP {exc.response.status_code}"
+                    )
+                except (httpx.TimeoutException, httpx.NetworkError) as exc:
+                    if attempt < 2:
+                        await asyncio.sleep(2**attempt)
+                        continue
+                    return self._error_response(engine, params, type(exc).__name__)
+                except (ValueError, httpx.HTTPError) as exc:
+                    return self._error_response(engine, params, type(exc).__name__)
+
+        return self._error_response(engine, params, "SerpApi request failed")
+
+    def _error_response(
+        self, engine: str, params: Dict[str, Any], message: str
+    ) -> Dict[str, Any]:
+        """Return an explicit provider error without leaking the API key."""
+        logging.getLogger(__name__).warning("SerpApi provider failure: %s", message)
+        error_data = self._generate_mock_response(engine, params)
+        error_data["_api_error"] = message
+        error_data["_source"] = "error"
+        return error_data
 
     def _generate_mock_response(self, engine: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """Generate realistic mock data when SERPAPI_KEY is not configured yet."""

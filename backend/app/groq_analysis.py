@@ -1,6 +1,7 @@
 """Grounded Groq second opinion using posting text and live SerpApi evidence."""
 
 import json
+import logging
 from urllib.parse import urlparse
 from typing import Optional
 
@@ -11,6 +12,7 @@ from app.config import settings
 from app.models import GroqDecision, SignalResult
 
 GROQ_CHAT_COMPLETIONS_URL = "https://api.groq.com/openai/v1/chat/completions"
+logger = logging.getLogger(__name__)
 
 
 class OfficialDomainChoice(BaseModel):
@@ -56,7 +58,8 @@ async def select_official_domain_with_groq(
             response.raise_for_status()
             content = response.json()["choices"][0]["message"]["content"]
         choice = OfficialDomainChoice.model_validate_json(content)
-    except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError, ValidationError):
+    except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError, ValidationError) as exc:
+        logger.warning("Groq decision rejected; omitting optional recommendation: %s", type(exc).__name__)
         return None
 
     if choice.candidate_index is None or not choice.evidence:
