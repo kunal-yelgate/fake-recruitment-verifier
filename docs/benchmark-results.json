@@ -1,0 +1,566 @@
+{
+  "dataset": "C:\\Users\\yelga\\Pictures\\fake-recruiter-verifier\\backend\\benchmarks\\dataset\\postings.json",
+  "metrics": {
+    "sample_size": 102,
+    "accuracy": 0.6666666666666666,
+    "macro_precision": 0.5,
+    "macro_recall": 0.6666666666666666,
+    "macro_f1": 0.5555555555555555,
+    "per_class": {
+      "scam": {
+        "support": 34,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "legit": {
+        "support": 34,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "ambiguous": {
+        "support": 34,
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6666666666666666
+      }
+    },
+    "confusion_matrix": {
+      "labels": [
+        "scam",
+        "legit",
+        "ambiguous"
+      ],
+      "rows": {
+        "scam": {
+          "scam": 34,
+          "legit": 0,
+          "ambiguous": 0
+        },
+        "legit": {
+          "scam": 0,
+          "legit": 0,
+          "ambiguous": 34
+        },
+        "ambiguous": {
+          "scam": 0,
+          "legit": 0,
+          "ambiguous": 34
+        }
+      }
+    }
+  },
+  "rows": [
+    {
+      "id": "scam-1",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-1",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-1",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-2",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-2",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-2",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-3",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-3",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-3",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-4",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-4",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-4",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-5",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-5",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-5",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-6",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-6",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-6",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-7",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-7",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-7",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-8",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-8",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-8",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-9",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-9",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-9",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-10",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-10",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-10",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-11",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-11",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-11",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-12",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-12",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-12",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-13",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-13",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-13",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-14",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-14",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-14",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-15",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-15",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-15",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-16",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-16",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-16",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-17",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-17",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-17",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-18",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-18",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-18",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-19",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-19",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-19",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-20",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-20",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-20",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-21",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-21",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-21",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-22",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-22",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-22",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-23",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-23",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-23",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-24",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-24",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-24",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-25",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-25",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-25",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-26",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-26",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-26",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-27",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-27",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-27",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-28",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-28",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-28",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-29",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-29",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-29",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-30",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-30",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-30",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-31",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-31",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-31",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-32",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-32",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-32",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-33",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-33",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-33",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "scam-34",
+      "label": "scam",
+      "predicted_label": "scam"
+    },
+    {
+      "id": "legit-34",
+      "label": "legit",
+      "predicted_label": "ambiguous"
+    },
+    {
+      "id": "ambiguous-34",
+      "label": "ambiguous",
+      "predicted_label": "ambiguous"
+    }
+  ]
+}

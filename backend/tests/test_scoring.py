@@ -1,8 +1,7 @@
 """Unit tests for the weighted scoring engine."""
 
-import pytest
 from app.models import SignalResult
-from app.scoring import calculate_risk_score, BASE_SCORE
+from app.scoring import BASE_SCORE, calculate_risk_score
 
 
 def make_signal(key: str, delta: int, status: str = "pass") -> SignalResult:

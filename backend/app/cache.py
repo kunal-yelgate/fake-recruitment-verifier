@@ -4,7 +4,8 @@ import hashlib
 import json
 import sqlite3
 import time
-from typing import Any, Dict, Optional
+from typing import Any
+
 from app.config import settings
 from app.metrics import metrics
 
@@ -20,7 +21,7 @@ class QueryCache:
         conn.row_factory = sqlite3.Row
         return conn
 
-    def _init_db(self):
+    def _init_db(self) -> None:
         with self._get_connection() as conn:
             conn.execute(
                 """
@@ -33,19 +34,17 @@ class QueryCache:
                 )
                 """
             )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_cache_created ON serpapi_cache(created_at)"
-            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_cache_created ON serpapi_cache(created_at)")
             conn.commit()
 
     @staticmethod
-    def compute_key(engine: str, params: Dict[str, Any]) -> str:
+    def compute_key(engine: str, params: dict[str, Any]) -> str:
         """Deterministically hash the engine and query parameters."""
         sorted_params = json.dumps(params, sort_keys=True, default=str)
-        raw = f"{engine}:{sorted_params}".encode("utf-8")
+        raw = f"{engine}:{sorted_params}".encode()
         return hashlib.sha256(raw).hexdigest()
 
-    def get(self, engine: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def get(self, engine: str, params: dict[str, Any]) -> dict[str, Any] | None:
         """Retrieve cached response if within TTL, else return None."""
         key = self.compute_key(engine, params)
         now = time.time()
@@ -72,7 +71,7 @@ class QueryCache:
         metrics.increment("cache_misses")
         return None
 
-    def set(self, engine: str, params: Dict[str, Any], data: Dict[str, Any]):
+    def set(self, engine: str, params: dict[str, Any], data: dict[str, Any]) -> None:
         """Save a SerpApi response with current timestamp."""
         if data.get("_source") in {"mock", "error"} or data.get("_api_error") or data.get("_is_mock"):
             return
@@ -98,7 +97,7 @@ class QueryCache:
         except Exception:
             pass
 
-    def clear(self):
+    def clear(self) -> None:
         """Clear all cached queries."""
         try:
             with self._get_connection() as conn:
@@ -107,7 +106,7 @@ class QueryCache:
         except Exception:
             pass
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Return cache health metrics."""
         try:
             with self._get_connection() as conn:

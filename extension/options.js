@@ -13,7 +13,10 @@ document.querySelector("#save").addEventListener("click", async () => {
     return;
   }
   try {
-    new URL(apiUrl);
+    const parsed = new URL(apiUrl);
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      throw new Error("unsupported protocol");
+    }
   } catch {
     status.textContent = "Enter a valid URL.";
     return;

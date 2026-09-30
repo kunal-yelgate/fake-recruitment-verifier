@@ -1,0 +1,512 @@
+[
+  {
+    "id": "scam-1",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 1 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-1",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-1",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-2",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 2 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-2",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-2",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-3",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 3 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-3",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-3",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-4",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 4 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-4",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-4",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-5",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 5 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-5",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-5",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-6",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 6 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-6",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-6",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-7",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 7 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-7",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-7",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-8",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 8 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-8",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-8",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-9",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 9 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-9",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-9",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-10",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 10 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-10",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-10",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-11",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 11 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-11",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-11",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-12",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 12 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-12",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-12",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-13",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 13 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-13",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-13",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-14",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 14 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-14",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-14",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-15",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 15 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-15",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-15",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-16",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 16 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-16",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-16",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-17",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 17 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-17",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-17",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-18",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 18 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-18",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-18",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-19",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 19 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-19",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-19",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-20",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 20 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-20",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-20",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-21",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 21 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-21",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-21",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-22",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 22 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-22",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-22",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-23",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 23 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-23",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-23",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-24",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 24 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-24",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-24",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-25",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 25 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-25",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-25",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-26",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 26 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-26",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-26",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-27",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 27 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-27",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-27",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-28",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 28 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-28",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-28",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-29",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 29 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-29",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-29",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-30",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 30 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-30",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-30",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-31",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 31 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-31",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-31",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-32",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 32 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-32",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-32",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-33",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 33 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-33",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-33",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  },
+  {
+    "id": "scam-34",
+    "label": "scam",
+    "text": "Urgent fake offer for remote customer support. Pay registration fee 34 INR and send identity documents through WhatsApp."
+  },
+  {
+    "id": "legit-34",
+    "label": "legit",
+    "text": "Example Industries is hiring a software engineer. Apply through the official careers page with no payment required."
+  },
+  {
+    "id": "ambiguous-34",
+    "label": "ambiguous",
+    "text": "A growing company is hiring an analyst. Contact the recruiter to verify the role and employer details."
+  }
+]

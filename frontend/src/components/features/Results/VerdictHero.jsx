@@ -24,6 +24,7 @@ export function VerdictHero({
   linkedinReferralLeads = [],
   isMock,
   dataQuality = "demo",
+  overallConfidence = "low",
   hasSearchError,
   executionTime,
   onOpenExport,
@@ -62,6 +63,9 @@ export function VerdictHero({
           <Badge variant={badgeVariant} size="md" icon={Icon}>
             {isLive ? verdict : "Demo result, not a real verdict"}
           </Badge>
+          <span className="rounded-full border border-slate-600/70 bg-slate-800/60 px-2.5 py-0.5 text-[11px] font-semibold text-slate-300">
+            Evidence confidence: {overallConfidence}
+          </span>
 
           {executionTime && (
             <span className="text-[11px] font-mono text-slate-400 dark:text-slate-400 bg-slate-800/60 px-2.5 py-0.5 rounded-full border border-slate-700/60">

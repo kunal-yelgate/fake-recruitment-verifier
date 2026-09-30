@@ -74,9 +74,7 @@ async def test_groq_decision_uses_live_evidence_and_validates_quotes(monkeypatch
         ),
     ]
 
-    result = await assess_with_groq(
-        "Job offer. Pay the $250 equipment fee upfront.", signals
-    )
+    result = await assess_with_groq("Job offer. Pay the $250 equipment fee upfront.", signals)
 
     assert result is not None
     assert result.recommendation == "do_not_apply"
@@ -199,13 +197,15 @@ async def test_groq_domain_selection_rejects_unquoted_evidence(monkeypatch):
 
     monkeypatch.setattr(settings, "groq_api_key", "test-key")
     monkeypatch.setattr(groq_analysis.httpx, "AsyncClient", FakeAsyncClient)
-    candidates = [{
-        "candidate_index": 0,
-        "domain": "acme.example",
-        "link": "https://acme.example",
-        "title": "Acme site",
-        "snippet": "Products and careers",
-    }]
+    candidates = [
+        {
+            "candidate_index": 0,
+            "domain": "acme.example",
+            "link": "https://acme.example",
+            "title": "Acme site",
+            "snippet": "Products and careers",
+        }
+    ]
 
     result = await select_official_domain_with_groq("Acme Labs", candidates)
 

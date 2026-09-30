@@ -4,17 +4,18 @@
 
 ![TrueRecruit AI Banner](https://img.shields.io/badge/TrueRecruit%20AI-OSINT%20Threat%20Radar-6366f1?style=for-the-badge&logo=shield&logoColor=white)
 
-<img src="docs/assets/scan-flow.gif" alt="Fake Recruitment Verifier scan flow" width="900" />
+<img src="docs/assets/scan-flow.svg" alt="Fake Recruitment Verifier scan flow" width="900" />
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/React-18.3+-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![Vite](https://img.shields.io/badge/Vite-5.4+-646CFF?style=flat-square&logo=vite&logoColor=white)](https://vitejs.dev)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4+-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white)](https://tailwindcss.com)
 [![SerpApi](https://img.shields.io/badge/SerpApi-Live%20Search%20OSINT-orange?style=flat-square)](https://serpapi.com)
+[![CI](https://github.com/kunal-yelgate/fake-recruitment-verifier/actions/workflows/ci.yml/badge.svg)](https://github.com/kunal-yelgate/fake-recruitment-verifier/actions/workflows/ci.yml)
 
 **A transparent screening aid for checking job postings and recruiter messages against public web evidence.**
 
-[Quick start](#quick-start) · [How it works](#how-it-works) · [API](#api-reference) · [Benchmark](#benchmark-and-accuracy) · [Limitations](#limitations)
+[Quick start](#quick-start) · [How it works](#how-it-works) · [Sample scans](docs/sample-scans.md) · [API](#api-reference) · [Benchmark](#benchmark-and-accuracy) · [Limitations](#limitations)
 
 </div>
 
@@ -24,6 +25,7 @@
 
 - [What the project does](#what-the-project-does)
 - [How it works](#how-it-works)
+- [Architecture](#architecture)
 - [Features](#features)
 - [Repository structure](#repository-structure)
 - [Quick start](#quick-start)
@@ -49,6 +51,41 @@ Fake Recruitment Verifier helps a candidate review a job posting or recruiter me
 - plain-English safety guidance.
 
 The application is designed to answer **“what should I verify next?”**, not to make an irreversible **“this is definitely a scam”** decision.
+
+## Architecture
+
+See the [expanded architecture notes](docs/architecture.md) for trust boundaries,
+provider fallbacks, and the Mermaid diagram in isolation.
+
+The repository contains a React/Vite browser client and a FastAPI service. The
+client sends authenticated requests to the API; provider credentials stay on
+the backend and are never bundled into the frontend.
+
+```mermaid
+flowchart LR
+    UI[React/Vite UI] -->|Clerk bearer token| API[FastAPI API]
+    API --> AUTH[Clerk JWT validation]
+    API --> EXTRACT[Grounded extraction]
+    EXTRACT --> CLAIMS[Claim and search planning]
+    CLAIMS --> SEARCH[SerpApi public evidence]
+    SEARCH --> JUDGE[Grounded evidence judgments]
+    JUDGE --> SCORE[Deterministic scorer]
+    SCORE --> API
+    API --> CACHE[(SQLite cache)]
+```
+
+The claim pipeline is bounded: it validates claims against submitted text,
+limits follow-up rounds, records provider provenance, and keeps the numeric
+score under deterministic application control. Groq is optional and is used
+for extraction, planning, evidence judgments, and explanations; regex and
+deterministic fallbacks keep demo mode usable when Groq is unavailable.
+
+Authentication is required for `/check` and `/fetch-url` by default. The
+backend validates Clerk JWTs with `CLERK_JWT_KEY` and fails closed when auth is
+enabled but no verification key is configured. `REQUIRE_AUTH=False` is intended
+only for local development or automated tests. Both analysis endpoints are
+rate-limited per client IP by `RATE_LIMIT_PER_MIN` (10 requests/minute by
+default); a `429` response includes `Retry-After`.
 
 ## How it works
 
@@ -87,7 +124,14 @@ Groq writes a grounded explanation with checked citations
 - Follow-up searches are capped in code, not just requested in the prompt.
 - Groq does not control the numeric score.
 - The deterministic scorer remains the final authority for `risk_score` and `verdict`.
-- The API accepts text today. For screenshots, run OCR first and submit the extracted text.
+- The API accepts text and can safely fetch public HTTP(S) job pages through
+  `POST /fetch-url`. URL fetching blocks private, loopback, link-local, and
+  other non-public IP targets, follows only a small bounded number of redirects,
+  and enforces timeout, content-type, and response-size limits. OCR uploads are
+  not enabled in this phase because the repository has no vetted OCR dependency;
+  perform OCR in a separately isolated, trusted client or service and submit the
+  resulting text. See [docs/inputs.md](docs/inputs.md) for the URL-import
+  workflow, input limits, and the rationale for deferring screenshot OCR.
 
 ## Features
 
@@ -102,6 +146,16 @@ Groq writes a grounded explanation with checked citations
 - **Export:** download a Markdown or JSON forensic report.
 - **Referral leads:** when appropriate, public LinkedIn search matches may be shown as leads; they are not confirmed employees.
 - **Demo mode:** without SerpApi, the app can run with simulated results clearly marked as mock.
+- **Privacy-first samples:** the [sample scan gallery](docs/sample-scans.md) uses synthetic,
+  non-contactable identities and links back to the in-app presets.
+
+## Demo
+
+There is no hosted demo or recorded video link in this repository yet. Do not
+mistake the local demo for live evidence: follow the reproducible walkthrough
+in [`demo/script.md`](demo/script.md), start the backend and frontend locally,
+and use the preset scans. The banner above is a static, repository-local
+workflow illustration rather than a recording.
 
 ## Repository structure
 
@@ -109,16 +163,17 @@ Groq writes a grounded explanation with checked citations
 fake-recruitment-verifier/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py             # FastAPI app and POST /check
+│   │   ├── main.py             # FastAPI app and POST /check, POST /fetch-url
 │   │   ├── models.py           # Pydantic request, response, and audit models
 │   │   ├── claim_pipeline.py   # Claims, search plans, evidence, judgments, follow-ups
 │   │   ├── extraction.py       # Groq extraction plus grounded regex fallback
 │   │   ├── groq_analysis.py    # Groq decisions and domain selection helpers
 │   │   ├── serpapi_client.py   # Async SerpApi client and SQLite cache
-│   │   ├── signals.py           # Text rules and reusable legacy signal helpers
+│   │   ├── signals/             # Modular text and public-search signal helpers
 │   │   ├── scoring.py           # Deterministic 0–100 heuristic score
 │   │   ├── config.py            # Environment-backed settings
-│   │   └── cache.py             # 24-hour SQLite query cache
+│   │   ├── cache.py             # 24-hour SQLite query cache
+│   │   └── url_fetcher.py       # SSRF-safe bounded HTTP(S) text fetcher
 │   ├── tests/                  # Backend unit, integration, and pipeline tests
 │   ├── benchmark_real_postings.py
 │   ├── requirements.txt
@@ -131,7 +186,11 @@ fake-recruitment-verifier/
 │   │   └── services/
 │   ├── package.json
 │   └── vite.config.js
-├── docs/assets/scan-flow.gif   # README product walkthrough
+├── docs/
+│   ├── assets/scan-flow.svg    # README workflow illustration
+│   ├── architecture.md         # Trust boundaries and Mermaid diagram
+│   ├── privacy.md              # Provider and browser-storage privacy note
+│   └── sample-scans.md         # Synthetic preset scan gallery
 ├── .env.example
 ├── netlify.toml
 └── README.md
@@ -185,6 +244,19 @@ Run this from the repository root:
 python -m pip install -r backend/requirements.txt
 ```
 
+For local development and tests, install the development layer instead:
+
+```bash
+python -m pip install -r backend/requirements-dev.txt
+```
+
+Anthropic extraction is optional; install its provider layer only when
+`ANTHROPIC_API_KEY` is configured:
+
+```bash
+python -m pip install -r backend/requirements-optional.txt
+```
+
 ### 4. Configure environment variables
 
 Copy the template:
@@ -207,7 +279,7 @@ Then edit `.env`:
 SERPAPI_KEY=your_serpapi_key_here
 GROQ_API_KEY=your_groq_api_key_here
 GROQ_MODEL=llama-3.3-70b-versatile
-HOST=0.0.0.0
+HOST=127.0.0.1
 PORT=8000
 DEBUG=True
 ```
@@ -245,17 +317,21 @@ The frontend uses `VITE_API_BASE_URL` when provided. For local development, it d
 
 ## Configuration
 
-| Variable | Required | Purpose |
-|---|---:|---|
-| `SERPAPI_KEY` | No | Enables live Google, Google News, and Google Maps searches. Without it, results are marked mock. |
-| `GROQ_API_KEY` | No | Enables structured extraction, search planning, evidence judgments, follow-ups, and cited explanations. |
-| `GROQ_MODEL` | No | Groq model name; defaults to `llama-3.3-70b-versatile`. |
-| `HOST` | No | Backend bind host; defaults to `0.0.0.0`. |
-| `PORT` | No | Backend port; defaults to `8000`. |
-| `DEBUG` | No | Enables development reload behavior. |
-| `CACHE_DB_PATH` | No | SQLite cache location; defaults to `app_cache.db`. |
-| `CACHE_TTL_HOURS` | No | Search-cache lifetime; defaults to 24 hours. |
-| `VITE_API_BASE_URL` | No | Frontend URL for a deployed FastAPI backend. |
+| Variable             | Required | Purpose                                                                                                 |
+| -------------------- | -------: | ------------------------------------------------------------------------------------------------------- |
+| `SERPAPI_KEY`        |       No | Enables live Google, Google News, and Google Maps searches. Without it, results are marked mock.        |
+| `GROQ_API_KEY`       |       No | Enables structured extraction, search planning, evidence judgments, follow-ups, and cited explanations. |
+| `GROQ_MODEL`         |       No | Groq model name; defaults to `llama-3.3-70b-versatile`.                                                 |
+| `HOST`               |       No | Backend bind host; defaults to `127.0.0.1`.                                                             |
+| `PORT`               |       No | Backend port; defaults to `8000`.                                                                       |
+| `DEBUG`              |       No | Enables development reload behavior.                                                                    |
+| `REQUIRE_AUTH`       |       No | Requires a valid Clerk session for scans; enabled by default.                                           |
+| `CLERK_JWT_KEY`      |       No | Clerk JWT verification key when authentication is enabled.                                              |
+| `RATE_LIMIT_PER_MIN` |       No | Per-IP limit for scan and URL-fetch endpoints; defaults to 10 requests/minute.                          |
+| `CORS_ORIGINS`       |       No | Comma-separated browser origins; localhost is the default.                                              |
+| `CACHE_DB_PATH`      |       No | SQLite cache location; defaults to `app_cache.db`.                                                      |
+| `CACHE_TTL_HOURS`    |       No | Search-cache lifetime; defaults to 24 hours.                                                            |
+| `VITE_API_BASE_URL`  |       No | Frontend URL for a deployed FastAPI backend.                                                            |
 
 Groq receives the submitted posting text when enabled. SerpApi receives planned search queries. Configure these providers only if that data sharing is acceptable.
 
@@ -301,20 +377,31 @@ Important response fields:
     },
     "rounds_completed": 0
   },
-  "is_mock": false
+  "is_mock": false,
+  "data_quality": "live",
+  "overall_confidence": "high"
 }
 ```
 
 The exact claims, signals, and citations depend on the submitted posting and provider responses. `risk_score` is a heuristic index, not a probability.
 
+`data_quality` is `live`, `partial`, or `demo`; non-live responses are not
+authoritative verdicts. Signal `confidence` values are `pass`, `fail`, or
+`unknown`, and `overall_confidence` summarizes evidence coverage.
+When provider evidence is unavailable, the API returns `demo` or `partial`
+quality and the UI labels the result as unverified rather than presenting a
+legitimate/scam conclusion.
+
 ### Other endpoints
 
-| Method | Path | Purpose |
-|---|---|---|
-| `GET` | `/health` | Health check |
-| `GET` | `/cache/stats` | SQLite cache statistics |
-| `GET` | `/docs` | Interactive Swagger documentation |
-| `GET` | `/redoc` | ReDoc API documentation |
+| Method | Path           | Purpose                                                            |
+| ------ | -------------- | ------------------------------------------------------------------ |
+| `POST` | `/fetch-url`   | Authenticated, SSRF-safe extraction of text from a public job URL. |
+| `GET`  | `/health`      | Health check                                                       |
+| `GET`  | `/cache/stats` | SQLite cache statistics                                            |
+| `GET`  | `/metrics`     | Prometheus-style cache/provider counters (no user text or secrets) |
+| `GET`  | `/docs`        | Interactive Swagger documentation                                  |
+| `GET`  | `/redoc`       | ReDoc API documentation                                            |
 
 ## Scoring model
 
@@ -326,11 +413,11 @@ final_score = clamp(50 + sum(signal_deltas), 0, 100)
 
 Current bands:
 
-| Score | Verdict | Meaning |
-|---:|---|---|
-| 0–34 | Likely Legitimate | Few negative signals were found; this does not prove authenticity. |
-| 35–64 | Caution | Evidence is mixed, incomplete, or needs manual verification. |
-| 65–100 | Likely Scam | Strong warning signals were found; stop and independently verify before proceeding. |
+|  Score | Verdict           | Meaning                                                                             |
+| -----: | ----------------- | ----------------------------------------------------------------------------------- |
+|   0–34 | Likely Legitimate | Few negative signals were found; this does not prove authenticity.                  |
+|  35–64 | Caution           | Evidence is mixed, incomplete, or needs manual verification.                        |
+| 65–100 | Likely Scam       | Strong warning signals were found; stop and independently verify before proceeding. |
 
 The score is deterministic once the signal judgments are available. Groq may explain or judge evidence, but it does not directly choose the numeric score.
 
@@ -365,16 +452,16 @@ There is **no complete, valid accuracy score yet**.
 
 The last authorized run stopped after an incomplete prefix because SerpApi returned fallback data:
 
-| Metric | Incomplete result |
-|---|---:|
-| Evaluated postings | 18 of 30 |
-| Accuracy | **4/18 = 22.2%** |
-| True positives | 0 |
-| False positives | 3 |
-| True negatives | 4 |
-| False negatives | 11 |
-| Scam precision | 0% |
-| Scam recall | 0% |
+| Metric             | Incomplete result |
+| ------------------ | ----------------: |
+| Evaluated postings |          18 of 30 |
+| Accuracy           |  **4/18 = 22.2%** |
+| True positives     |                 0 |
+| False positives    |                 3 |
+| True negatives     |                 4 |
+| False negatives    |                11 |
+| Scam precision     |                0% |
+| Scam recall        |                0% |
 
 This **22.2% is not a valid project accuracy score**. It is an incomplete diagnostic that strongly suggests the current hand-authored weights and cutoff need calibration. It must not be generalized to the full dataset, and mock results must never be mixed with live results.
 
@@ -398,11 +485,16 @@ Frontend production build:
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run build
+npm test
 ```
 
-The test suite covers extraction, grounded Groq responses, claim grounding, search limits, provider failures, scoring, signal behavior, and the FastAPI endpoint.
+The test suite covers extraction, grounded Groq responses, claim grounding,
+search limits, provider failures, scoring, signal behavior, the FastAPI
+endpoint, and the core frontend authentication/evidence/verdict views. CI
+runs backend tests with coverage on Python 3.10, 3.11, and 3.12, plus Ruff
+and the frontend install, build, and test suite.
 
 ## Deploying the frontend
 
@@ -431,6 +523,12 @@ The backend must be deployed separately to a Python-compatible host. Store `SERP
 - Screenshot upload and OCR are not implemented in the API.
 
 ## Privacy and security
+
+Read the full [privacy note](docs/privacy.md) before enabling live providers.
+In short, scan text stays in the browser history until the user clears it,
+while enabled Groq and SerpApi integrations receive the portions of a scan
+needed for their configured requests. Demo mode does not make provider data
+sharing live.
 
 - Do not commit `.env`, API keys, recruiter personal data, or private job documents.
 - Use synthetic text when testing provider integrations.

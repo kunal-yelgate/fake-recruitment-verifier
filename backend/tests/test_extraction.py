@@ -1,8 +1,10 @@
 """Unit tests for structured field extraction engine."""
 
-from pathlib import Path
 import json
+from pathlib import Path
+
 import pytest
+
 from app import extraction
 from app.config import settings
 from app.extraction import extract_fields, extract_with_regex

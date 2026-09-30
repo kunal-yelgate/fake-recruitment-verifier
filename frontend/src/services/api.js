@@ -41,6 +41,49 @@ export async function verifyPosting(rawText, signal, token) {
       } catch {
         // ignore JSON parse error
       }
+
+      /**
+       * Fetch bounded text from a public job-posting URL.
+       * @param {string} url
+       * @param {AbortSignal} [signal]
+       * @param {string} [token]
+       * @returns {Promise<{text: string, final_url: string, content_type: string}>}
+       */
+      export async function fetchJobUrl(url, signal, token) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        try {
+          const response = await fetch(`${API_BASE_URL}/fetch-url`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({ url }),
+            signal: signal || controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+          if (!response.ok) {
+            let errorMsg = `Unable to fetch URL (${response.status})`;
+            try {
+              const errJson = await response.json();
+              if (errJson.detail) errorMsg = errJson.detail;
+            } catch {
+              // Ignore non-JSON error responses.
+            }
+            throw new Error(errorMsg);
+          }
+          return await response.json();
+        } catch (err) {
+          clearTimeout(timeoutId);
+          if (err.name === "AbortError") {
+            throw new Error("URL fetch timed out. Please paste the posting text instead.");
+          }
+          throw err;
+        }
+      }
       throw new Error(errorMsg);
     }
 

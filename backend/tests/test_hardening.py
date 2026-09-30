@@ -1,16 +1,17 @@
-import pytest
-import httpx
 from types import SimpleNamespace
+
+import httpx
+import pytest
 from pydantic import ValidationError
+from slowapi.errors import RateLimitExceeded
+from starlette.requests import Request
 
 from app import serpapi_client as serpapi_module
-from app.models import CheckRequest
-from app.serpapi_client import SerpApiClient
 from app.cache import QueryCache
 from app.main import app as fastapi_app
 from app.main import rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from starlette.requests import Request
+from app.models import CheckRequest
+from app.serpapi_client import SerpApiClient
 
 
 def test_check_request_rejects_oversized_postings():
@@ -52,9 +53,7 @@ async def test_rate_limit_response_includes_retry_after():
     request = Request(scope)
     response = await rate_limit_exceeded_handler(
         request,
-        RateLimitExceeded(
-            SimpleNamespace(error_message=None, limit="10 per 1 minute")
-        ),
+        RateLimitExceeded(SimpleNamespace(error_message=None, limit="10 per 1 minute")),
     )
 
     assert response.status_code == 429
@@ -64,6 +63,7 @@ async def test_rate_limit_response_includes_retry_after():
 @pytest.mark.asyncio
 async def test_check_requires_authentication(monkeypatch):
     from httpx import ASGITransport, AsyncClient
+
     from app.main import app
 
     monkeypatch.setattr("app.config.settings.require_auth", True)
@@ -151,9 +151,7 @@ async def test_mock_mode_keeps_clean_and_gibberish_postings_neutral():
 
     gibberish = "qzxv 9182 blorp nnnn"
     gibberish_fields = await extract_fields(gibberish)
-    _, verdict, _, _ = calculate_risk_score(
-        await evaluate_all_signals(gibberish_fields, gibberish)
-    )
+    _, verdict, _, _ = calculate_risk_score(await evaluate_all_signals(gibberish_fields, gibberish))
     assert verdict == "Insufficient information"
 
 
@@ -176,9 +174,20 @@ def test_cache_expired_entries_are_removed(tmp_path):
     assert query_cache.get("google", params) is None
 
 
+def test_cache_clear_and_stats(tmp_path):
+    query_cache = QueryCache(str(tmp_path / "cache.db"), ttl_hours=24)
+    query_cache.set("google", {"q": "one"}, {"organic_results": []})
+    query_cache.set("google", {"q": "two"}, {"organic_results": []})
+
+    assert query_cache.get_stats()["total_cached_queries"] == 2
+    query_cache.clear()
+    assert query_cache.get_stats()["total_cached_queries"] == 0
+
+
 @pytest.mark.asyncio
 async def test_metrics_endpoint_is_prometheus_compatible():
     from httpx import ASGITransport, AsyncClient
+
     from app.main import app
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -191,9 +200,41 @@ async def test_metrics_endpoint_is_prometheus_compatible():
 @pytest.mark.asyncio
 async def test_request_id_is_returned_without_logging_request_content():
     from httpx import ASGITransport, AsyncClient
+
     from app.main import app
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         response = await client.get("/health", headers={"X-Request-ID": "test-request-123"})
 
     assert response.headers["X-Request-ID"] == "test-request-123"
+
+
+def test_metrics_report_cache_hit_rate_and_optional_serpapi_quota(monkeypatch):
+    from app.config import settings
+    from app.metrics import Metrics
+
+    registry = Metrics(cache_hits=3, cache_misses=1, serpapi_quota_used=2)
+    monkeypatch.setattr(settings, "serpapi_quota_limit", 10)
+
+    output = registry.prometheus()
+
+    assert "truerecruit_cache_hit_rate 0.750000" in output
+    assert "truerecruit_serpapi_quota_used_total 2" in output
+    assert "truerecruit_serpapi_quota_remaining 8" in output
+
+
+def test_json_logs_exclude_sensitive_request_fields():
+    import json
+    import logging
+
+    from app.observability import JSONFormatter
+
+    record = logging.LogRecord("test", logging.INFO, __file__, 1, "request completed", (), None)
+    record.request_id = "request-1"
+    record.path = "/check"
+    record.status_code = 200
+    rendered = json.loads(JSONFormatter().format(record))
+
+    assert rendered["request_id"] == "request-1"
+    assert "raw_text" not in rendered
+    assert "api_key" not in rendered

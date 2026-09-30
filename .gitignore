@@ -24,7 +24,18 @@ wheels/
 .coverage
 htmlcov/
 *.sqlite
+*.sqlite3
 *.db
+*.db-*
+
+# Local secrets and credentials
+secrets/
+*.secret
+*.secrets
+secrets.*
+credentials.*
+*.pem
+*.key
 
 # Virtual Environments
 venv/

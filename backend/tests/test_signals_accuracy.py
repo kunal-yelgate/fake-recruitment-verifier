@@ -1,17 +1,19 @@
 """Unit tests targeting accuracy edge cases, false-positive protection, and in-text threat scanning."""
 
-import pytest
 from datetime import datetime, timedelta, timezone
+
+import pytest
+
 from app.models import ExtractedFields
 from app.signals import (
-    check_in_text_threats,
-    check_news_fraud,
-    check_domain_match,
-    check_company_footprint,
-    check_linkedin_presence,
-    evaluate_all_signals,
+    _email_auth_hints,
     _lookalike_reason,
     _lookup_domain_age_days,
+    check_company_footprint,
+    check_domain_match,
+    check_in_text_threats,
+    check_linkedin_presence,
+    check_news_fraud,
     find_linkedin_referral_leads,
 )
 
@@ -32,12 +34,30 @@ async def test_in_text_threat_scam():
 @pytest.mark.asyncio
 async def test_in_text_threat_clean():
     fields = ExtractedFields(company_name="Stripe")
-    legit_text = (
-        "Stripe is hiring a Software Engineer. Apply at stripe.com/jobs or email talent@stripe.com."
-    )
+    legit_text = "Stripe is hiring a Software Engineer. Apply at stripe.com/jobs or email talent@stripe.com."
     result = await check_in_text_threats(fields, legit_text)
     assert result.status == "pass"
     assert result.score_delta < 0
+
+
+@pytest.mark.asyncio
+async def test_india_registration_fee_and_telegram_only_are_flagged():
+    fields = ExtractedFields(company_name="Mumbai Staffing")
+    result = await check_in_text_threats(
+        fields,
+        "Pay a refundable registration fee and security deposit. Continue the interview on Telegram only.",
+    )
+    assert result.status == "fail"
+    assert "registration fee" in result.finding.lower()
+    assert "telegram-only" in result.finding.lower()
+
+
+@pytest.mark.asyncio
+async def test_email_auth_is_unknown_without_optional_dnspython(monkeypatch):
+    import app.signals.domain_email as domain_email
+
+    monkeypatch.setattr(domain_email, "dns", None)
+    assert await _email_auth_hints("example.com") == ""
 
 
 @pytest.mark.asyncio
@@ -58,12 +78,15 @@ async def test_news_false_positive_protection(monkeypatch):
         }
 
     from app.signals import serpapi_client
+
     monkeypatch.setattr(serpapi_client, "search", mock_search)
 
     result = await check_news_fraud(fields)
     assert result.status == "pass"
     assert result.score_delta < 0
-    assert "fake scams impersonating" in result.finding.lower() or "no direct fraud complaints" in result.finding.lower()
+    assert (
+        "fake scams impersonating" in result.finding.lower() or "no direct fraud complaints" in result.finding.lower()
+    )
 
 
 @pytest.mark.asyncio
@@ -80,6 +103,7 @@ async def test_domain_match_job_board_exclusion(monkeypatch):
         }
 
     from app.signals import serpapi_client
+
     monkeypatch.setattr(serpapi_client, "search", mock_search)
 
     result = await check_domain_match(fields)
@@ -120,6 +144,7 @@ async def test_rdap_domain_age_is_reported_without_scoring(monkeypatch):
             return FakeResponse()
 
     from app import signals
+
     monkeypatch.setattr(signals.httpx, "AsyncClient", FakeAsyncClient)
 
     age_days = await _lookup_domain_age_days("new-company.example")
@@ -139,13 +164,10 @@ async def test_free_email_still_checks_company_domain(monkeypatch):
 
     async def mock_search(engine, params):
         search_queries.append(params["q"])
-        return {
-            "organic_results": [
-                {"link": "https://acme-example.com", "title": "Acme Example official site"}
-            ]
-        }
+        return {"organic_results": [{"link": "https://acme-example.com", "title": "Acme Example official site"}]}
 
     from app import signals
+
     monkeypatch.setattr(signals.serpapi_client, "search", mock_search)
     monkeypatch.setattr(signals, "_lookup_domain_age_days", _no_domain_age)
 
@@ -165,6 +187,7 @@ async def test_domain_signal_flags_typo_of_official_domain(monkeypatch):
         return {"organic_results": [{"link": "https://paypal.com", "title": "PayPal"}]}
 
     from app import signals
+
     monkeypatch.setattr(signals.serpapi_client, "search", mock_search)
     monkeypatch.setattr(signals, "_lookup_domain_age_days", _no_domain_age)
 
@@ -202,6 +225,7 @@ async def test_domain_signal_uses_groq_selected_live_candidate(monkeypatch):
         return "acmelabs.example", "Acme Labs | Official Company Website"
 
     from app import signals
+
     monkeypatch.setattr(signals.serpapi_client, "search", mock_search)
     monkeypatch.setattr(signals, "select_official_domain_with_groq", mock_groq_selection)
     monkeypatch.setattr(signals, "_lookup_domain_age_days", _no_domain_age)
@@ -241,6 +265,7 @@ async def test_linkedin_referral_leads_require_live_company_matched_profiles(mon
         }
 
     from app import signals
+
     monkeypatch.setattr(signals.serpapi_client, "search", mock_search)
 
     leads = await find_linkedin_referral_leads(fields)
@@ -257,14 +282,17 @@ async def test_linkedin_referral_search_ignores_mock_results(monkeypatch):
     async def mock_search(engine, params):
         return {
             "_source": "mock",
-            "organic_results": [{
-                "link": "https://www.linkedin.com/in/fake-person",
-                "title": "Fake Person - Recruiter at Acme Labs",
-                "snippet": "Recruiter at Acme Labs",
-            }],
+            "organic_results": [
+                {
+                    "link": "https://www.linkedin.com/in/fake-person",
+                    "title": "Fake Person - Recruiter at Acme Labs",
+                    "snippet": "Recruiter at Acme Labs",
+                }
+            ],
         }
 
     from app import signals
+
     monkeypatch.setattr(signals.serpapi_client, "search", mock_search)
 
     assert await find_linkedin_referral_leads(fields) == []
@@ -295,6 +323,7 @@ async def test_search_provider_error_is_neutral(monkeypatch):
         return {"_source": "error", "_api_error": "SerpApi HTTP 429"}
 
     from app.signals import serpapi_client
+
     monkeypatch.setattr(serpapi_client, "search", mock_search)
 
     result = await check_company_footprint(fields)

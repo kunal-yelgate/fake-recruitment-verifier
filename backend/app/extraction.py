@@ -7,8 +7,9 @@ regex fallback for zero-dependency local operation.
 import json
 import logging
 import re
-from typing import Optional
+
 import httpx
+
 from app.config import settings
 from app.models import ExtractedFields
 
@@ -22,22 +23,18 @@ def extract_with_regex(raw_text: str) -> ExtractedFields:
     lines = [line.strip() for line in cleaned.splitlines() if line.strip()]
 
     # 1. Contact Email
-    email_match = re.search(
-        r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", cleaned
-    )
+    email_match = re.search(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+", cleaned)
     contact_email = email_match.group(0).lower() if email_match else None
 
     # 2. Claimed Domain
-    claimed_domain: Optional[str] = None
+    claimed_domain: str | None = None
     domain_header_match = re.search(
         r"(?:Domain|Website|Web)\s*[:\-]\s*([a-zA-Z0-9-]+\.[a-zA-Z]{2,})", cleaned, re.IGNORECASE
     )
     if domain_header_match:
         claimed_domain = domain_header_match.group(1).lower()
     else:
-        url_match = re.search(
-            r"https?://(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z]{2,})(?:/[^\s]*)?", cleaned
-        )
+        url_match = re.search(r"https?://(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z]{2,})(?:/[^\s]*)?", cleaned)
         if url_match:
             claimed_domain = url_match.group(1).lower()
         elif contact_email:
@@ -45,7 +42,7 @@ def extract_with_regex(raw_text: str) -> ExtractedFields:
             claimed_domain = domain_part.lower()
 
     # 3. Company Name
-    company_name: Optional[str] = None
+    company_name: str | None = None
     company_patterns = [
         r"(?:Company|Employer|Organization|Hiring Company)\s*[:\-]\s*([A-Za-z0-9&.,' ]{2,50})",
         r"(?:About|Welcome to)\s+([A-Z][A-Za-z0-9&.,' ]{2,35})",
@@ -73,7 +70,15 @@ def extract_with_regex(raw_text: str) -> ExtractedFields:
 
     # Infer company name from domain if email is corporate and company is unknown
     if not company_name and contact_email and claimed_domain:
-        free_domains = {"gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com", "proton.me", "protonmail.com"}
+        free_domains = {
+            "gmail.com",
+            "yahoo.com",
+            "hotmail.com",
+            "outlook.com",
+            "aol.com",
+            "proton.me",
+            "protonmail.com",
+        }
         if claimed_domain not in free_domains:
             name_part = claimed_domain.split(".")[0]
             if len(name_part) >= 3:
@@ -84,7 +89,7 @@ def extract_with_regex(raw_text: str) -> ExtractedFields:
         company_name = "Undisclosed Company"
 
     # 4. Recruiter Name
-    recruiter_name: Optional[str] = None
+    recruiter_name: str | None = None
     recruiter_patterns = [
         r"(?:Recruiter|Hiring Manager|Contact Person|HR Contact|Talent Acquisition|From)\s*[:\-]\s*([A-Z][a-z]+ [A-Z][a-z]+)",
         r"(?:My name is|I am|Reach out to|Contact Mr\.|Contact Ms\.)\s+([A-Z][a-z]+ [A-Z][a-z]+)",
@@ -96,7 +101,7 @@ def extract_with_regex(raw_text: str) -> ExtractedFields:
             break
 
     # 5. Job Title
-    job_title: Optional[str] = None
+    job_title: str | None = None
     title_patterns = [
         r"(?:Job Title|Position|Role|Opening)\s*[:\-]\s*([A-Za-z0-9 /&\-]{3,50})",
         r"(?:Hiring for|Looking for a|Seeking a)\s+([A-Za-z0-9 /&\-]{3,40})",
@@ -108,7 +113,7 @@ def extract_with_regex(raw_text: str) -> ExtractedFields:
             break
 
     # 6. Salary or compensation
-    salary_range: Optional[str] = None
+    salary_range: str | None = None
     amount_pattern = (
         r"(?:[$€£]\s?\d[\d,]*(?:\.\d+)?"
         r"(?:\s*[-–]\s*[$€£]?\s?\d[\d,]*(?:\.\d+)?)?"
@@ -156,7 +161,15 @@ def extract_with_regex(raw_text: str) -> ExtractedFields:
 
 def _extract_distinctive_phrase(lines: list[str]) -> str:
     """Find a unique, non-boilerplate sentence suitable for exact-match duplicate detection."""
-    boilerplate_words = {"equal opportunity", "benefits", "apply now", "requirements", "qualification", "job title", "salary"}
+    boilerplate_words = {
+        "equal opportunity",
+        "benefits",
+        "apply now",
+        "requirements",
+        "qualification",
+        "job title",
+        "salary",
+    }
 
     for line in lines[1:]:
         clean_line = line.strip()
@@ -180,7 +193,7 @@ def _grounded_llm_fields(data: dict, raw_text: str, fallback: ExtractedFields, m
     """Accept model-extracted values only when they occur in the supplied posting."""
     normalized_text = " ".join(raw_text.casefold().split())
 
-    def grounded_value(key: str) -> Optional[str]:
+    def grounded_value(key: str) -> str | None:
         value = data.get(key)
         if not isinstance(value, str) or not value.strip():
             return None
@@ -210,7 +223,11 @@ def _grounded_llm_fields(data: dict, raw_text: str, fallback: ExtractedFields, m
         "salary_range": grounded_value("salary_range") or fallback.salary_range,
         "payment_requests": grounded_list("payment_requests") or fallback.payment_requests,
     }
-    email_domain = values["contact_email"].rsplit("@", 1)[-1].lower() if values["contact_email"] and "@" in values["contact_email"] else None
+    email_domain = (
+        values["contact_email"].rsplit("@", 1)[-1].lower()
+        if values["contact_email"] and "@" in values["contact_email"]
+        else None
+    )
     if (
         email_domain
         and values["claimed_domain"] == email_domain
@@ -318,10 +335,7 @@ async def extract_fields(raw_text: str) -> ExtractedFields:
             messages=[
                 {
                     "role": "user",
-                    "content": (
-                        f"{prompt}\n\nBEGIN_UNTRUSTED_POSTING\n"
-                        f"{raw_text[:2500]}\nEND_UNTRUSTED_POSTING"
-                    ),
+                    "content": (f"{prompt}\n\nBEGIN_UNTRUSTED_POSTING\n{raw_text[:2500]}\nEND_UNTRUSTED_POSTING"),
                 }
             ],
         )

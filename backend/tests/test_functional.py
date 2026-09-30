@@ -2,15 +2,17 @@
 
 import asyncio
 from pathlib import Path
+
 from app.extraction import extract_fields
-from app.signals import evaluate_all_signals
 from app.scoring import calculate_risk_score
+from app.signals import evaluate_all_signals
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
 def test_functional_scam_flow():
     """End-to-end test on the realistic scam job posting."""
+
     async def _run():
         scam_text = (FIXTURES_DIR / "scam_posting.txt").read_text(encoding="utf-8")
 
@@ -39,6 +41,7 @@ def test_functional_scam_flow():
 
 def test_functional_legit_flow():
     """End-to-end test on the legitimate Stripe job posting."""
+
     async def _run():
         legit_text = (FIXTURES_DIR / "legit_posting.txt").read_text(encoding="utf-8")
 
@@ -67,7 +70,8 @@ def test_functional_legit_flow():
 
 def test_fastapi_check_endpoint():
     """Test using httpx AsyncClient directly against the FastAPI app instance."""
-    from httpx import AsyncClient, ASGITransport
+    from httpx import ASGITransport, AsyncClient
+
     from app.main import app
 
     async def _run():
@@ -86,6 +90,7 @@ def test_fastapi_check_endpoint():
 
             # Check /check endpoint
             from app.config import settings
+
             original_require_auth = settings.require_auth
             settings.require_auth = False
             check_res = await client.post("/check", json={"raw_text": scam_text})

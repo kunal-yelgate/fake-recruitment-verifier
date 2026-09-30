@@ -14,16 +14,14 @@ Thresholds:
   - Score < 35: 'Likely Legitimate' (badge: success)
 """
 
-from typing import List, Tuple
 from app.models import SignalResult
-
 
 BASE_SCORE = 50
 SCAM_THRESHOLD = 65
 CAUTION_LOWER = 35
 
 
-def calculate_risk_score(signals: List[SignalResult], base: int = BASE_SCORE) -> Tuple[int, str, str, str]:
+def calculate_risk_score(signals: list[SignalResult], base: int = BASE_SCORE) -> tuple[int, str, str, str]:
     """
     Compute final risk score, verdict string, badge style, and an informative narrative summary.
 

@@ -3,7 +3,6 @@
 import json
 import logging
 from urllib.parse import urlparse
-from typing import Optional
 
 import httpx
 from pydantic import BaseModel, Field, ValidationError
@@ -16,13 +15,11 @@ logger = logging.getLogger(__name__)
 
 
 class OfficialDomainChoice(BaseModel):
-    candidate_index: Optional[int] = Field(default=None, ge=0)
-    evidence: Optional[str] = None
+    candidate_index: int | None = Field(default=None, ge=0)
+    evidence: str | None = None
 
 
-async def select_official_domain_with_groq(
-    company: str, candidates: list[dict]
-) -> Optional[tuple[str, str]]:
+async def select_official_domain_with_groq(company: str, candidates: list[dict]) -> tuple[str, str] | None:
     """Select a domain only from live search candidates and require a matching quote."""
     api_key = settings.groq_api_key
     if not api_key or api_key.strip() in ("", "your_key_here") or not candidates:
@@ -72,9 +69,7 @@ async def select_official_domain_with_groq(
         return None
 
     evidence = " ".join(choice.evidence.casefold().split())
-    source_text = " ".join(
-        f"{selected.get('title', '')} {selected.get('snippet', '')}".casefold().split()
-    )
+    source_text = " ".join(f"{selected.get('title', '')} {selected.get('snippet', '')}".casefold().split())
     if not evidence or evidence not in source_text:
         return None
 
@@ -89,22 +84,16 @@ def _normalize_quote(value: str) -> str:
     return " ".join(value.casefold().split())
 
 
-def _validate_evidence_quotes(
-    quotes: list[str], raw_text: str, live_findings: list[str]
-) -> list[str]:
+def _validate_evidence_quotes(quotes: list[str], raw_text: str, live_findings: list[str]) -> list[str]:
     sources = [_normalize_quote(raw_text)] + [_normalize_quote(item) for item in live_findings]
     return [
         quote.strip()
         for quote in quotes
-        if isinstance(quote, str)
-        and quote.strip()
-        and any(_normalize_quote(quote) in source for source in sources)
+        if isinstance(quote, str) and quote.strip() and any(_normalize_quote(quote) in source for source in sources)
     ]
 
 
-async def assess_with_groq(
-    raw_text: str, signals: list[SignalResult]
-) -> Optional[GroqDecision]:
+async def assess_with_groq(raw_text: str, signals: list[SignalResult]) -> GroqDecision | None:
     """Return a source-grounded recommendation, or None when unavailable/unverifiable."""
     api_key = settings.groq_api_key
     if not api_key or api_key.strip() in ("", "your_key_here"):
@@ -171,9 +160,7 @@ async def assess_with_groq(
     parsed.evidence_quotes = verified_quotes
 
     critical_warnings = any(
-        signal.data_source in {"live", "text"}
-        and signal.status == "fail"
-        and signal.score_delta >= 20
+        signal.data_source in {"live", "text"} and signal.status == "fail" and signal.score_delta >= 20
         for signal in signals
     )
     independent_passes = {
@@ -181,16 +168,15 @@ async def assess_with_groq(
         for signal in signals
         if signal.data_source == "live"
         and signal.status == "pass"
-        and signal.signal_key in {
+        and signal.signal_key
+        in {
             "company_footprint",
             "linkedin_presence",
             "domain_match",
             "recruiter_check",
         }
     }
-    if parsed.recommendation == "apply" and (
-        critical_warnings or len(independent_passes) < 2
-    ):
+    if parsed.recommendation == "apply" and (critical_warnings or len(independent_passes) < 2):
         parsed.recommendation = "verify_before_applying"
         parsed.explanation = (
             "Available checks do not provide enough independent confirmation for an apply recommendation. "

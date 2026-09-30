@@ -1,0 +1,3 @@
+# Optional provider integrations. The backend falls back to regex extraction
+# when Anthropic is not installed or ANTHROPIC_API_KEY is not configured.
+anthropic==0.45.2

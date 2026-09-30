@@ -5,6 +5,7 @@ import {
   RotateCcw,
   UploadCloud,
   Search,
+  Link,
 } from "lucide-react";
 import { Button } from "../../ui/Button";
 import { Card } from "../../ui/Card";
@@ -14,12 +15,16 @@ export function PostingInput({
   text,
   setText,
   onVerify,
+  onFetchUrl = () => {},
+  urlLoading = false,
+  urlError = null,
   isLoading,
   error,
   scanSteps,
   activeStepIndex,
 }) {
   const fileInputRef = useRef(null);
+  const [url, setUrl] = useState("");
   const charCount = text.trim().length;
   const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
 
@@ -30,7 +35,7 @@ export function PostingInput({
     reader.onload = (event) => {
       const content = event.target?.result;
       if (typeof content === "string") {
-        setText(content);
+        setText(content.slice(0, 10000));
       }
     };
     reader.readAsText(file);
@@ -56,11 +61,44 @@ export function PostingInput({
 
       {/* Textarea Input Container */}
       <div className="space-y-2">
+        <div className="space-y-2 rounded-[20px] border border-[#d1cdc7] bg-[#fcfbfa] p-3 dark:border-white/15 dark:bg-[#141413]/70">
+          <label htmlFor="job-posting-url" className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-[#696969] dark:text-[#d1cdc7]">
+            <Link className="h-4 w-4 text-[#cf4500] dark:text-[#f37338]" />
+            Import from a public URL
+          </label>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              id="job-posting-url"
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              disabled={isLoading || urlLoading}
+              placeholder="https://example.com/jobs/role"
+              className="min-w-0 flex-1 rounded-xl border border-[#d1cdc7] bg-white px-3 py-2 text-sm text-[#141413] focus:border-[#141413] focus:outline-none focus:ring-2 focus:ring-[#141413]/10 dark:border-white/15 dark:bg-[#141413] dark:text-[#f3f0ee]"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="md"
+              onClick={() => onFetchUrl(url)}
+              isLoading={urlLoading}
+              disabled={isLoading || urlLoading || !/^https?:\/\/\S+$/i.test(url.trim())}
+              className="sm:w-auto"
+            >
+              Fetch posting
+            </Button>
+          </div>
+          <p className="text-xs leading-relaxed text-[#696969] dark:text-[#96918a]">
+            Only public HTTP(S) pages are supported. Unsafe redirects, private networks, large files, and non-text content are blocked. Review imported text before scanning.
+          </p>
+          {urlError && <p role="alert" className="text-xs font-medium text-[#9a3a0a] dark:text-[#f37338]">{urlError}</p>}
+        </div>
         <div className="relative">
           <textarea
             rows={7}
             value={text}
             onChange={(e) => setText(e.target.value)}
+            maxLength={10000}
             disabled={isLoading}
             placeholder="Paste the job post, recruiter email, or direct message you want analyzed..."
             className="min-h-[180px] w-full resize-y rounded-[20px] border border-[#d1cdc7] bg-[#fcfbfa] p-4 font-mono text-xs leading-relaxed text-[#141413] shadow-inner transition placeholder:text-[#96918a] focus:border-[#141413] focus:outline-none focus:ring-2 focus:ring-[#141413]/10 dark:border-white/15 dark:bg-[#141413]/70 dark:text-[#f3f0ee] dark:placeholder:text-[#696969] dark:focus:border-[#f3f0ee] sm:text-sm"

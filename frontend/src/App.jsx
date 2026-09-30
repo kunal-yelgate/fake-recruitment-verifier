@@ -12,11 +12,11 @@ import { EvidenceTable } from "./components/features/Evidence/EvidenceTable";
 import { ScanHistoryDrawer } from "./components/features/History/ScanHistoryDrawer";
 import { useVerifier } from "./hooks/useVerifier";
 import { useScanHistory } from "./hooks/useScanHistory";
-import { getBackendStatus } from "./services/api";
+import { fetchJobUrl, getBackendStatus } from "./services/api";
 import { LandingPage } from "./components/LandingPage";
 
 export default function App() {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useAuth();
   const [showLanding, setShowLanding] = useState(true);
   const [isDark, setIsDark] = useState(() => {
     const saved = localStorage.getItem("theme");
@@ -24,6 +24,8 @@ export default function App() {
   });
 
   const [text, setText] = useState("");
+  const [urlLoading, setUrlLoading] = useState(false);
+  const [urlError, setUrlError] = useState(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [backendHealth, setBackendHealth] = useState({ online: true });
@@ -75,6 +77,22 @@ export default function App() {
 
   const handleVerify = () => {
     verify(text);
+  };
+
+  const handleFetchUrl = async (url) => {
+    setUrlError(null);
+    setUrlLoading(true);
+    try {
+      const token = await getToken();
+      if (!token) throw new Error("Please sign in before fetching a URL.");
+      const fetched = await fetchJobUrl(url.trim(), undefined, token);
+      if (!fetched.text?.trim()) throw new Error("No readable text was found at that URL.");
+      setText(fetched.text.slice(0, 10000));
+    } catch (err) {
+      setUrlError(err.message || "Unable to fetch that URL.");
+    } finally {
+      setUrlLoading(false);
+    }
   };
 
   const handleSelectHistoryScan = (historyItem) => {
@@ -131,6 +149,9 @@ export default function App() {
           text={text}
           setText={setText}
           onVerify={handleVerify}
+          onFetchUrl={handleFetchUrl}
+          urlLoading={urlLoading}
+          urlError={urlError}
           isLoading={isLoading}
           error={error}
           scanSteps={scanSteps}
@@ -154,6 +175,7 @@ export default function App() {
               linkedinReferralLeads={results.linkedin_referral_leads}
               isMock={results.is_mock}
               dataQuality={results.data_quality}
+              overallConfidence={results.overall_confidence}
               hasSearchError={results.signals.some((signal) => signal.data_source === "error")}
               executionTime={results.execution_time_seconds}
               onOpenExport={() => setIsExportOpen(true)}

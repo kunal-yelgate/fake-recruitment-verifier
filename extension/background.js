@@ -1,5 +1,6 @@
 const DEFAULT_API_URL = "http://127.0.0.1:8000/check";
 const MENU_ID = "check-selected-recruiter-text";
+const PAGE_MENU_ID = "check-supported-job-page";
 
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
@@ -8,14 +9,36 @@ chrome.runtime.onInstalled.addListener(() => {
       title: "Check selected text with Fake Recruiter Verifier",
       contexts: ["selection"]
     });
+    chrome.contextMenus.create({
+      id: PAGE_MENU_ID,
+      title: "Check this LinkedIn/Naukri/Indeed page",
+      contexts: ["page"],
+      documentUrlPatterns: [
+        "https://www.linkedin.com/*",
+        "https://www.naukri.com/*",
+        "https://www.indeed.com/*"
+      ]
+    });
   });
 });
 
-chrome.contextMenus.onClicked.addListener(async (info) => {
-  if (info.menuItemId !== MENU_ID || !info.selectionText?.trim()) return;
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  let text = info.selectionText?.trim();
+  if (info.menuItemId === PAGE_MENU_ID && tab?.id) {
+    try {
+      const response = await chrome.tabs.sendMessage(tab.id, { type: "extractPageText" });
+      text = response?.text?.trim();
+    } catch {
+      text = "";
+    }
+  }
+  if (
+    (info.menuItemId !== MENU_ID && info.menuItemId !== PAGE_MENU_ID) ||
+    !text
+  ) return;
 
   try {
-    const result = await checkText(info.selectionText);
+    const result = await checkText(text);
     await chrome.storage.local.set({ lastResult: result });
     setActionBadge(result);
     showNotification(result);

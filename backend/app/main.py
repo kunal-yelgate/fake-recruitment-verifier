@@ -1,29 +1,43 @@
 """FastAPI application entrypoint for Fake Recruiter Verifier."""
 
-import time
 import logging
+import time
 import uuid
+from collections.abc import Awaitable, Callable
+from typing import Any
+
 import jwt
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, PlainTextResponse
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
+
+from app.cache import cache
+from app.claim_pipeline import run_claim_pipeline, write_cited_explanation
 from app.config import settings
-from app.models import CheckRequest, CheckResponse
 from app.extraction import extract_fields
 from app.groq_analysis import assess_with_groq
-from app.claim_pipeline import run_claim_pipeline, write_cited_explanation
-from app.signals import find_linkedin_referral_leads
-from app.scoring import calculate_risk_score
-from app.cache import cache
 from app.metrics import metrics
+from app.models import CheckRequest, CheckResponse, FetchURLRequest, FetchURLResponse
+from app.observability import configure_logging, elapsed_ms
+from app.scoring import calculate_risk_score
+from app.signals import find_linkedin_referral_leads
+from app.url_fetcher import (
+    InvalidURL,
+    URLFetchError,
+    URLFetchTimeout,
+    URLFetchTooLarge,
+    URLFetchUnsupportedContent,
+    fetch_text,
+)
 
 logger = logging.getLogger(__name__)
+configure_logging()
 
 
-def require_authenticated_user(request: Request) -> dict:
+def require_authenticated_user(request: Request) -> dict[str, Any]:
     """Validate a Clerk session JWT and fail closed when auth is not configured."""
     if not settings.require_auth:
         return {"sub": "test-user"}
@@ -49,6 +63,7 @@ def require_authenticated_user(request: Request) -> dict:
     except jwt.PyJWTError as exc:
         raise HTTPException(status_code=401, detail="Invalid or expired sign-in session.") from exc
 
+
 app = FastAPI(
     title="Fake Recruiter Verifier API",
     description="""
@@ -71,13 +86,30 @@ The API does not make a legal determination or guarantee that a recruiter is saf
 
 
 @app.middleware("http")
-async def request_id_middleware(request: Request, call_next):
+async def request_id_middleware(request: Request, call_next: Callable[[Request], Awaitable[Any]]) -> Any:
     """Attach a correlation ID without logging request text or credentials."""
-    request_id = request.headers.get("x-request-id") or uuid.uuid4().hex
+    supplied_id = request.headers.get("x-request-id", "")
+    request_id = supplied_id if 1 <= len(supplied_id) <= 128 and supplied_id.isprintable() else uuid.uuid4().hex
     request.state.request_id = request_id
-    response = await call_next(request)
+    started = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception(
+            "request failed",
+            extra={"request_id": request_id, "method": request.method, "path": request.url.path,
+                   "duration_ms": elapsed_ms(started)},
+        )
+        raise
     response.headers["X-Request-ID"] = request_id
+    logger.info(
+        "request completed",
+        extra={"request_id": request_id, "method": request.method, "path": request.url.path,
+               "status_code": response.status_code, "duration_ms": elapsed_ms(started)},
+    )
     return response
+
+
 limiter = Limiter(key_func=get_remote_address, default_limits=[])
 app.state.limiter = limiter
 
@@ -97,11 +129,7 @@ app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 # Enable CORS for development frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        origin.strip()
-        for origin in settings.cors_origins.split(",")
-        if origin.strip()
-    ],
+    allow_origins=[origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -109,7 +137,7 @@ app.add_middleware(
 
 
 @app.get("/")
-async def root():
+async def root() -> dict[str, str]:
     """Service status and quick links."""
     return {
         "service": "Fake Recruiter Verifier API",
@@ -120,26 +148,60 @@ async def root():
 
 
 @app.get("/health")
-async def health_check():
+async def health_check() -> dict[str, float | str]:
     """Health check endpoint for monitoring."""
     return {"status": "healthy", "timestamp": time.time()}
 
 
 @app.get("/cache/stats")
-async def cache_stats():
+async def cache_stats() -> dict[str, Any]:
     """Retrieve SQLite query cache statistics."""
     return cache.get_stats()
 
 
 @app.get("/metrics", response_class=PlainTextResponse)
-async def prometheus_metrics():
+async def prometheus_metrics() -> str:
     """Expose privacy-safe counters for cache and provider health."""
     return metrics.prometheus()
 
 
+@app.post("/fetch-url", response_model=FetchURLResponse)
+@limiter.limit(f"{settings.rate_limit_per_min}/minute")
+async def fetch_job_url(request: Request, payload: FetchURLRequest) -> FetchURLResponse:
+    """Fetch bounded text from a public HTTP(S) job posting URL.
+
+    OCR uploads are intentionally not enabled: the project has no vetted OCR
+    dependency, and accepting arbitrary image processing without one would
+    expand the security boundary.
+    """
+    require_authenticated_user(request)
+    try:
+        result = await fetch_text(
+            payload.url,
+            timeout_seconds=settings.url_fetch_timeout_seconds,
+            max_bytes=settings.url_fetch_max_bytes,
+            max_redirects=settings.url_fetch_max_redirects,
+        )
+    except InvalidURL as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except URLFetchTooLarge as exc:
+        raise HTTPException(status_code=413, detail=str(exc)) from exc
+    except URLFetchUnsupportedContent as exc:
+        raise HTTPException(status_code=415, detail=str(exc)) from exc
+    except URLFetchTimeout as exc:
+        raise HTTPException(status_code=504, detail=str(exc)) from exc
+    except URLFetchError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return FetchURLResponse(
+        text=result.text,
+        final_url=result.final_url,
+        content_type=result.content_type,
+    )
+
+
 @app.post("/check", response_model=CheckResponse)
 @limiter.limit(f"{settings.rate_limit_per_min}/minute")
-async def check_posting(request: Request, payload: CheckRequest):
+async def check_posting(request: Request, payload: CheckRequest) -> CheckResponse:
     """
     Analyze one user-provided job posting or recruiter message.
 
@@ -162,6 +224,13 @@ async def check_posting(request: Request, payload: CheckRequest):
 
         # Step 2: Extract claims, plan bounded searches, judge evidence, and retain an audit trail.
         claim_audit, signals = await run_claim_pipeline(payload.raw_text, extracted)
+        for signal in signals:
+            if signal.status == "pass":
+                signal.confidence = "pass"
+            elif signal.status == "fail":
+                signal.confidence = "fail"
+            else:
+                signal.confidence = "unknown"
 
         # Step 3: Compute weighted score and verdict
         risk_score, verdict, verdict_badge, summary = calculate_risk_score(signals)
@@ -186,10 +255,9 @@ async def check_posting(request: Request, payload: CheckRequest):
         ) from exc
 
     # Surface demo mode and provider failures instead of presenting them as live evidence.
-    is_mock = (
-        not bool(settings.serpapi_key and settings.serpapi_key.strip() not in ("", "your_serpapi_key_here"))
-        or any(signal.data_source == "mock" for signal in signals)
-    )
+    is_mock = not bool(
+        settings.serpapi_key and settings.serpapi_key.strip() not in ("", "your_serpapi_key_here")
+    ) or any(signal.data_source == "mock" for signal in signals)
     is_demo_only = is_mock or any(signal.data_source == "error" for signal in signals)
     sources = {signal.data_source for signal in signals}
     if sources == {"live"}:
@@ -206,6 +274,13 @@ async def check_posting(request: Request, payload: CheckRequest):
             "not an authoritative scam or legitimacy verdict. "
             f"{summary}"
         )
+
+    if data_quality == "live" and signals and all(signal.confidence != "unknown" for signal in signals):
+        overall_confidence = "high"
+    elif data_quality in {"live", "partial"}:
+        overall_confidence = "medium"
+    else:
+        overall_confidence = "low"
 
     elapsed = round(time.time() - start_time, 3)
 
@@ -224,10 +299,12 @@ async def check_posting(request: Request, payload: CheckRequest):
         score_is_authoritative=not is_demo_only,
         is_demo_only=is_demo_only,
         data_quality=data_quality,
+        overall_confidence=overall_confidence,
         execution_time_seconds=elapsed,
     )
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("app.main:app", host=settings.host, port=settings.port, reload=settings.debug)

@@ -2,48 +2,52 @@
 
 import asyncio
 import logging
-from typing import Any, Dict, Optional
+from typing import Any
+
 import httpx
-from app.config import settings
+
 from app.cache import cache
+from app.config import settings
 from app.metrics import metrics
 
 SERPAPI_ENDPOINT = "https://serpapi.com/search.json"
 
 
 class SerpApiClient:
-    def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or settings.serpapi_key
+    def __init__(self, api_key: str | None = None):
+        # Explicit ``None`` is useful for deterministic demo-mode clients in
+        # tests; the application singleton below passes configured settings.
+        self.api_key = api_key
 
-    async def search(self, engine: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    async def search(self, engine: str, params: dict[str, Any]) -> dict[str, Any]:
         """Perform a cached SerpApi search query across specified engine."""
         metrics.increment("serpapi_requests")
         search_params = {"engine": engine, **params}
 
+        # Demo mode must never reuse live cache entries: doing so would make a
+        # no-key run appear authoritative after a previous live scan.
+        if not self.api_key or self.api_key.strip() in ("", "your_serpapi_key_here"):
+            mock_data = self._generate_mock_response(engine, params)
+            mock_data["_source"] = "mock"
+            return mock_data
+
         # 1. Check local SQLite cache first (24h TTL)
         cached_result = cache.get(engine, search_params)
-        if (
-            cached_result is not None
-            and not cached_result.get("_is_mock")
-            and not cached_result.get("_api_error")
-        ):
+        if cached_result is not None and not cached_result.get("_is_mock") and not cached_result.get("_api_error"):
             cached_result.setdefault(
                 "_source",
                 "mock" if cached_result.get("_is_mock") else "error" if cached_result.get("_api_error") else "live",
             )
             return cached_result
 
-        # 2. If no API key is provided, return simulated responses without caching them.
-        if not self.api_key or self.api_key.strip() in ("", "your_serpapi_key_here"):
-            mock_data = self._generate_mock_response(engine, params)
-            mock_data["_source"] = "mock"
-            return mock_data
-
-        # 3. Call live SerpApi HTTP API
+        # 2. Call live SerpApi HTTP API
         request_params = {**search_params, "api_key": self.api_key}
         async with httpx.AsyncClient(timeout=15.0) as client:
             for attempt in range(3):
                 try:
+                    # Every outbound search consumes provider quota; cache
+                    # hits and demo responses intentionally do not.
+                    metrics.increment("serpapi_quota_used")
                     response = await client.get(SERPAPI_ENDPOINT, params=request_params)
                     response.raise_for_status()
                     data = response.json()
@@ -55,18 +59,13 @@ class SerpApiClient:
                     return data
                 except httpx.HTTPStatusError as exc:
                     if exc.response.status_code == 401 or (
-                        exc.response.status_code < 500
-                        and exc.response.status_code != 429
+                        exc.response.status_code < 500 and exc.response.status_code != 429
                     ):
-                        return self._error_response(
-                            engine, params, f"SerpApi HTTP {exc.response.status_code}"
-                        )
+                        return self._error_response(engine, params, f"SerpApi HTTP {exc.response.status_code}")
                     if attempt < 2:
                         await asyncio.sleep(2**attempt)
                         continue
-                    return self._error_response(
-                        engine, params, f"SerpApi HTTP {exc.response.status_code}"
-                    )
+                    return self._error_response(engine, params, f"SerpApi HTTP {exc.response.status_code}")
                 except (httpx.TimeoutException, httpx.NetworkError) as exc:
                     if attempt < 2:
                         await asyncio.sleep(2**attempt)
@@ -77,9 +76,7 @@ class SerpApiClient:
 
         return self._error_response(engine, params, "SerpApi request failed")
 
-    def _error_response(
-        self, engine: str, params: Dict[str, Any], message: str
-    ) -> Dict[str, Any]:
+    def _error_response(self, engine: str, params: dict[str, Any], message: str) -> dict[str, Any]:
         """Return an explicit provider error without leaking the API key."""
         logging.getLogger(__name__).warning("SerpApi provider failure: %s", message)
         metrics.increment("serpapi_errors")
@@ -88,7 +85,7 @@ class SerpApiClient:
         error_data["_source"] = "error"
         return error_data
 
-    def _generate_mock_response(self, engine: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    def _generate_mock_response(self, engine: str, params: dict[str, Any]) -> dict[str, Any]:
         """Generate realistic mock data when SERPAPI_KEY is not configured yet."""
         query = str(params.get("q", params.get("query", ""))).lower()
 
@@ -115,7 +112,7 @@ class SerpApiClient:
             ]
         )
 
-        data: Dict[str, Any] = {"_is_mock": True, "search_parameters": params}
+        data: dict[str, Any] = {"_is_mock": True, "search_parameters": params}
 
         if engine == "google_maps":
             if "google" in query or "microsoft" in query or "apple" in query or "stripe" in query:
@@ -164,7 +161,7 @@ class SerpApiClient:
                 else:
                     data["organic_results"] = [
                         {
-                            "title": f"Official Careers & People | LinkedIn",
+                            "title": "Official Careers & People | LinkedIn",
                             "link": f"https://www.linkedin.com/company/{params.get('q', 'company').replace(' ', '-').lower()}",
                             "snippet": "Verified corporate profile on LinkedIn. View open roles, employee headcount and leadership.",
                         }
@@ -180,7 +177,13 @@ class SerpApiClient:
                         }
                     ]
                 else:
-                    clean_name = query.replace("official website", "").replace('"', '').replace("inc.", "").replace("llc", "").strip()
+                    clean_name = (
+                        query.replace("official website", "")
+                        .replace('"', "")
+                        .replace("inc.", "")
+                        .replace("llc", "")
+                        .strip()
+                    )
                     company_slug = "".join(c for c in clean_name if c.isalnum()).lower() or "company"
                     data["organic_results"] = [
                         {
@@ -231,4 +234,4 @@ class SerpApiClient:
 
 
 # Shared client instance
-serpapi_client = SerpApiClient()
+serpapi_client = SerpApiClient(settings.serpapi_key)

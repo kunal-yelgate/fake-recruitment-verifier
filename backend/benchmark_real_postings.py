@@ -22,6 +22,7 @@ from app.scoring import SCAM_THRESHOLD, calculate_risk_score
 import app.serpapi_client as serpapi_module
 from app.serpapi_client import serpapi_client
 from app.signals import evaluate_all_signals
+from benchmark_synthetic_dataset import run_benchmark as run_synthetic_benchmark
 
 
 DATASET_URL = "https://www.kaggle.com/datasets/shivamb/real-or-fake-fake-jobposting-prediction"
@@ -217,14 +218,34 @@ async def run_live_benchmark(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("csv_file", type=Path, help="Path to fake_job_postings.csv")
+    parser.add_argument("csv_file", type=Path, nargs="?", help="Path to fake_job_postings.csv")
     parser.add_argument("--per-class", type=int, default=15, help="Rows sampled per label (default: 15)")
     parser.add_argument("--seed", type=int, default=42, help="Deterministic sampling seed")
     parser.add_argument("--live", action="store_true", help="Confirm use of live SerpApi searches")
     parser.add_argument("--output", type=Path, help="Optional JSON report path; no posting text is saved")
     parser.add_argument("--cache-db", type=Path, help="Optional isolated cache database for resuming a run")
+    parser.add_argument(
+        "--synthetic",
+        action="store_true",
+        help="Run the offline privacy-safe benchmark corpus without SerpApi.",
+    )
     args = parser.parse_args()
 
+    if args.synthetic:
+        try:
+            report = asyncio.run(run_synthetic_benchmark())
+        except Exception as exc:
+            print(f"Benchmark failed: {exc}", file=sys.stderr)
+            return 1
+        if args.output:
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+            print(f"Report saved to: {args.output}")
+        print(json.dumps(report["metrics"], indent=2))
+        return 0
+
+    if args.csv_file is None:
+        parser.error("csv_file is required unless --synthetic is used")
     if not args.csv_file.is_file():
         parser.error(f"CSV file not found: {args.csv_file}")
     if args.per_class < 1:

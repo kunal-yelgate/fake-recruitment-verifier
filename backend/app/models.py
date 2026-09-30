@@ -1,11 +1,13 @@
 """Pydantic schemas for request, response, and intermediate verification data."""
 
-from typing import List, Literal, Optional
+from typing import Literal
+
 from pydantic import BaseModel, Field, field_validator
 
 
 class CheckRequest(BaseModel):
     """Input payload containing raw job posting text."""
+
     raw_text: str = Field(
         ...,
         min_length=10,
@@ -24,16 +26,31 @@ class CheckRequest(BaseModel):
         return value
 
 
+class FetchURLRequest(BaseModel):
+    """Input payload for fetching a public job posting URL."""
+
+    url: str = Field(..., min_length=1, max_length=2048)
+
+
+class FetchURLResponse(BaseModel):
+    """Bounded text fetched from a public job posting URL."""
+
+    text: str
+    final_url: str
+    content_type: str
+
+
 class ExtractedFields(BaseModel):
     """Structured fields extracted from the raw posting text."""
-    company_name: Optional[str] = Field(None, description="Extracted employer or company name")
-    recruiter_name: Optional[str] = Field(None, description="Extracted recruiter or hiring manager name")
-    claimed_domain: Optional[str] = Field(None, description="Extracted domain or contact website/email domain")
-    contact_email: Optional[str] = Field(None, description="Extracted recruiter email address")
-    distinctive_phrase: Optional[str] = Field(None, description="Unique sentence used for duplicate fingerprinting")
-    job_title: Optional[str] = Field(None, description="Target job title or role")
-    salary_range: Optional[str] = Field(None, description="Salary or compensation range stated in the posting")
-    payment_requests: List[str] = Field(
+
+    company_name: str | None = Field(None, description="Extracted employer or company name")
+    recruiter_name: str | None = Field(None, description="Extracted recruiter or hiring manager name")
+    claimed_domain: str | None = Field(None, description="Extracted domain or contact website/email domain")
+    contact_email: str | None = Field(None, description="Extracted recruiter email address")
+    distinctive_phrase: str | None = Field(None, description="Unique sentence used for duplicate fingerprinting")
+    job_title: str | None = Field(None, description="Target job title or role")
+    salary_range: str | None = Field(None, description="Salary or compensation range stated in the posting")
+    payment_requests: list[str] = Field(
         default_factory=list,
         description="Exact payment, deposit, gift-card, crypto, or fee requests found in the posting",
     )
@@ -42,15 +59,17 @@ class ExtractedFields(BaseModel):
 
 class SignalResult(BaseModel):
     """Result of an individual live SerpApi signal check."""
+
     signal_key: str = Field(..., description="Machine identifier for the signal")
     signal_name: str = Field(..., description="Human-readable title of the check")
     engine: str = Field(..., description="SerpApi engine used (google_maps, google, google_news)")
     score_delta: int = Field(..., description="Points added or subtracted from base score")
     status: str = Field(..., description="'pass' (legit signal), 'warning', 'fail' (scam signal)")
+    confidence: Literal["pass", "fail", "unknown"] = "unknown"
     finding: str = Field(..., description="Summary of evidence found in search results")
     query_used: str = Field(..., description="Exact query string sent to SerpApi")
-    evidence_url: Optional[str] = Field(None, description="Direct URL to corroborating evidence or SerpApi link")
-    search_url: Optional[str] = Field(None, description="Clickable Google/Maps/News search link for manual review")
+    evidence_url: str | None = Field(None, description="Direct URL to corroborating evidence or SerpApi link")
+    search_url: str | None = Field(None, description="Clickable Google/Maps/News search link for manual review")
     data_source: str = Field(
         default="live",
         description="Evidence source: live search, source text, mock demo data, or unavailable provider response",
@@ -64,7 +83,7 @@ class GroqDecision(BaseModel):
         "verify_before_applying",
     ]
     explanation: str = Field(..., min_length=1, max_length=400)
-    evidence_quotes: List[str] = Field(..., min_length=1, max_length=4)
+    evidence_quotes: list[str] = Field(..., min_length=1, max_length=4)
 
 
 class LinkedInReferralLead(BaseModel):
@@ -97,7 +116,7 @@ class SearchEvidence(BaseModel):
     query: str
     title: str = ""
     snippet: str = ""
-    url: Optional[str] = None
+    url: str | None = None
     source: Literal["live", "mock", "error", "text"] = "live"
 
 
@@ -106,7 +125,7 @@ class ClaimJudgment(BaseModel):
     classification: Literal["supports", "contradicts", "unrelated", "ambiguous"]
     explanation: str = Field(..., min_length=1, max_length=400)
     source_snippet: str = Field(..., min_length=1, max_length=700)
-    evidence_urls: List[str] = Field(default_factory=list, max_length=5)
+    evidence_urls: list[str] = Field(default_factory=list, max_length=5)
 
 
 class FollowUpRequest(BaseModel):
@@ -118,21 +137,22 @@ class FollowUpRequest(BaseModel):
 
 class CitedExplanation(BaseModel):
     text: str = Field(..., min_length=1, max_length=1600)
-    citations: List[str] = Field(default_factory=list, max_length=12)
+    citations: list[str] = Field(default_factory=list, max_length=12)
 
 
 class ClaimPipelineAudit(BaseModel):
-    claims: List[VerifiableClaim] = Field(default_factory=list)
-    search_plan: List[SearchPlan] = Field(default_factory=list)
-    evidence: List[SearchEvidence] = Field(default_factory=list)
-    judgments: List[ClaimJudgment] = Field(default_factory=list)
-    follow_ups: List[FollowUpRequest] = Field(default_factory=list)
-    explanation: Optional[CitedExplanation] = None
+    claims: list[VerifiableClaim] = Field(default_factory=list)
+    search_plan: list[SearchPlan] = Field(default_factory=list)
+    evidence: list[SearchEvidence] = Field(default_factory=list)
+    judgments: list[ClaimJudgment] = Field(default_factory=list)
+    follow_ups: list[FollowUpRequest] = Field(default_factory=list)
+    explanation: CitedExplanation | None = None
     rounds_completed: int = Field(0, ge=0, le=2)
 
 
 class CheckResponse(BaseModel):
     """Complete response returned by POST /check."""
+
     risk_score: int = Field(
         ...,
         ge=0,
@@ -146,16 +166,16 @@ class CheckResponse(BaseModel):
     verdict_badge: str = Field(..., description="'danger', 'warning', or 'success'")
     base_score: int = Field(50, description="Starting neutral baseline score")
     extracted_fields: ExtractedFields
-    signals: List[SignalResult]
-    claim_audit: Optional[ClaimPipelineAudit] = Field(
+    signals: list[SignalResult]
+    claim_audit: ClaimPipelineAudit | None = Field(
         None,
         description="Auditable claim extraction, search planning, evidence, judgments, follow-ups, and citations.",
     )
-    groq_decision: Optional[GroqDecision] = Field(
+    groq_decision: GroqDecision | None = Field(
         None,
         description="Optional Groq apply recommendation grounded in the posting and live evidence; does not alter risk_score.",
     )
-    linkedin_referral_leads: List[LinkedInReferralLead] = Field(
+    linkedin_referral_leads: list[LinkedInReferralLead] = Field(
         default_factory=list,
         description="Public LinkedIn search matches for possible company referral contacts; current employment must be verified independently.",
     )
@@ -172,5 +192,9 @@ class CheckResponse(BaseModel):
     data_quality: Literal["live", "partial", "demo"] = Field(
         "demo",
         description="Overall evidence quality: all live, mixed/partially unavailable, or demo/unavailable.",
+    )
+    overall_confidence: Literal["high", "medium", "low"] = Field(
+        "low",
+        description="Confidence in the evidence-backed result, independent of the numeric risk score.",
     )
     execution_time_seconds: float = Field(..., description="Total processing time in seconds")
