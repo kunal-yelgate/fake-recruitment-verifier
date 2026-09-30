@@ -869,6 +869,12 @@ async def evaluate_all_signals(fields: ExtractedFields, raw_text: str = "") -> L
         check_recruiter_identity(fields),
     ]
     results: List[SignalResult] = await asyncio.gather(*tasks)
+    if len(re.findall(r"\b\w+\b", raw_text)) < 6:
+        for result in results:
+            result.score_delta = 0
+            result.status = "unknown"
+            result.finding = "Insufficient information to evaluate this posting."
+        return results
     has_live_key = bool(settings.serpapi_key and settings.serpapi_key.strip() not in ("", "your_serpapi_key_here"))
     if not has_live_key:
         for result in results:

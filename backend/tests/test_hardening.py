@@ -118,3 +118,25 @@ async def test_provider_errors_are_not_cached(monkeypatch):
 
     assert result["_source"] == "error"
     assert writes == []
+
+
+@pytest.mark.asyncio
+async def test_mock_mode_keeps_clean_and_gibberish_postings_neutral():
+    from app.extraction import extract_fields
+    from app.scoring import calculate_risk_score
+    from app.signals import evaluate_all_signals
+
+    clean = (
+        "Google is hiring a software engineer. Apply through "
+        "https://careers.google.com. The role includes standard benefits and interviews."
+    )
+    clean_fields = await extract_fields(clean)
+    clean_score, *_ = calculate_risk_score(await evaluate_all_signals(clean_fields, clean))
+    assert clean_score < 65
+
+    gibberish = "qzxv 9182 blorp nnnn"
+    gibberish_fields = await extract_fields(gibberish)
+    _, verdict, _, _ = calculate_risk_score(
+        await evaluate_all_signals(gibberish_fields, gibberish)
+    )
+    assert verdict == "Insufficient information"

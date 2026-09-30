@@ -36,6 +36,15 @@ def calculate_risk_score(signals: List[SignalResult], base: int = BASE_SCORE) ->
     # Clamp to [0, 100]
     final_score = max(0, min(100, raw_score))
 
+    if signals and all(signal.status == "unknown" for signal in signals):
+        return (
+            BASE_SCORE,
+            "Insufficient information",
+            "warning",
+            "Insufficient information to produce a meaningful risk assessment. "
+            "Provide more of the original posting or recruiter message.",
+        )
+
     if final_score >= SCAM_THRESHOLD:
         verdict = "Likely Scam"
         verdict_badge = "danger"
