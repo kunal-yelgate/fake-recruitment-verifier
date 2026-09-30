@@ -2,8 +2,9 @@
 
 import time
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from app.config import settings
@@ -36,7 +37,19 @@ The API does not make a legal determination or guarantee that a recruiter is saf
 )
 limiter = Limiter(key_func=get_remote_address, default_limits=[])
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    """Return a client-readable limit response with a one-minute retry hint."""
+    response = JSONResponse(
+        {"error": f"Rate limit exceeded: {exc.detail}"},
+        status_code=429,
+    )
+    response.headers["Retry-After"] = "60"
+    return response
+
+
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 # Enable CORS for development frontend
 app.add_middleware(
@@ -72,7 +85,7 @@ async def cache_stats():
 
 
 @app.post("/check", response_model=CheckResponse)
-@limiter.limit(settings.rate_limit)
+@limiter.limit(f"{settings.rate_limit_per_min}/minute")
 async def check_posting(request: Request, payload: CheckRequest):
     """
     Analyze one user-provided job posting or recruiter message.
@@ -114,6 +127,13 @@ async def check_posting(request: Request, payload: CheckRequest):
         or any(signal.data_source == "mock" for signal in signals)
     )
     is_demo_only = is_mock or any(signal.data_source == "error" for signal in signals)
+    sources = {signal.data_source for signal in signals}
+    if sources == {"live"}:
+        data_quality = "live"
+    elif "live" in sources:
+        data_quality = "partial"
+    else:
+        data_quality = "demo"
     if is_demo_only:
         verdict = "Unverified"
         verdict_badge = "warning"
@@ -139,6 +159,7 @@ async def check_posting(request: Request, payload: CheckRequest):
         is_mock=is_mock,
         score_is_authoritative=not is_demo_only,
         is_demo_only=is_demo_only,
+        data_quality=data_quality,
         execution_time_seconds=elapsed,
     )
 

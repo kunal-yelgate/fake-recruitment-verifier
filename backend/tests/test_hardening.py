@@ -1,10 +1,15 @@
 import pytest
 import httpx
+from types import SimpleNamespace
 from pydantic import ValidationError
 
 from app import serpapi_client as serpapi_module
 from app.models import CheckRequest
 from app.serpapi_client import SerpApiClient
+from app.main import app as fastapi_app
+from app.main import rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from starlette.requests import Request
 
 
 def test_check_request_rejects_oversized_postings():
@@ -29,6 +34,30 @@ def test_check_request_accepts_posting_under_limit():
 def test_check_request_rejects_empty_or_too_short_postings(raw_text, message):
     with pytest.raises(ValidationError, match=message):
         CheckRequest(raw_text=raw_text)
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_response_includes_retry_after():
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": "/check",
+        "headers": [],
+        "client": ("127.0.0.1", 12345),
+        "server": ("test", 80),
+        "scheme": "http",
+        "app": fastapi_app,
+    }
+    request = Request(scope)
+    response = await rate_limit_exceeded_handler(
+        request,
+        RateLimitExceeded(
+            SimpleNamespace(error_message=None, limit="10 per 1 minute")
+        ),
+    )
+
+    assert response.status_code == 429
+    assert response.headers["Retry-After"] == "60"
 
 
 @pytest.mark.asyncio
