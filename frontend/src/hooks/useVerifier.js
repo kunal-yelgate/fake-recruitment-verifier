@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from "react";
+import { useAuth } from "@clerk/react";
 import { verifyPosting } from "../services/api";
 
 const SCAN_STEPS = [
@@ -11,6 +12,7 @@ const SCAN_STEPS = [
 ];
 
 export function useVerifier(onSuccess) {
+  const { getToken } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [results, setResults] = useState(null);
@@ -44,7 +46,15 @@ export function useVerifier(onSuccess) {
       }, 400);
 
       try {
-        const data = await verifyPosting(text.trim(), abortControllerRef.current.signal);
+        const token = await getToken();
+        if (!token) {
+          throw new Error("Please sign in before starting a scan.");
+        }
+        const data = await verifyPosting(
+          text.trim(),
+          abortControllerRef.current.signal,
+          token
+        );
         clearInterval(stepTimer);
         setActiveStepIndex(SCAN_STEPS.length - 1);
         setResults(data);
@@ -59,7 +69,7 @@ export function useVerifier(onSuccess) {
         setIsLoading(false);
       }
     },
-    [onSuccess]
+    [getToken, onSuccess]
   );
 
   const reset = useCallback(() => {

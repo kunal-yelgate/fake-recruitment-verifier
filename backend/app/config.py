@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     groq_api_key: Optional[str] = None
     groq_model: str = "llama-3.3-70b-versatile"
     anthropic_api_key: Optional[str] = None
+    clerk_jwt_key: Optional[str] = None
+    clerk_issuer: Optional[str] = None
+    require_auth: bool = True
 
     # Server configuration
     host: str = "0.0.0.0"

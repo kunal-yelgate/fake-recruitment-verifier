@@ -85,7 +85,11 @@ def test_fastapi_check_endpoint():
             assert "total_cached_queries" in cache_res.json()
 
             # Check /check endpoint
+            from app.config import settings
+            original_require_auth = settings.require_auth
+            settings.require_auth = False
             check_res = await client.post("/check", json={"raw_text": scam_text})
+            settings.require_auth = original_require_auth
             assert check_res.status_code == 200
             data = check_res.json()
 

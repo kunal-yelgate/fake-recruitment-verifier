@@ -1,6 +1,7 @@
 """FastAPI application entrypoint for Fake Recruiter Verifier."""
 
 import time
+import jwt
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +16,33 @@ from app.claim_pipeline import run_claim_pipeline, write_cited_explanation
 from app.signals import find_linkedin_referral_leads
 from app.scoring import calculate_risk_score
 from app.cache import cache
+
+
+def require_authenticated_user(request: Request) -> dict:
+    """Validate a Clerk session JWT and fail closed when auth is not configured."""
+    if not settings.require_auth:
+        return {"sub": "test-user"}
+
+    authorization = request.headers.get("authorization", "")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.casefold() != "bearer" or not token:
+        raise HTTPException(status_code=401, detail="Sign in is required to run a scan.")
+    if not settings.clerk_jwt_key:
+        raise HTTPException(
+            status_code=503,
+            detail="Authentication is not configured on this server.",
+        )
+
+    decode_kwargs = {
+        "algorithms": ["RS256"],
+        "options": {"verify_aud": False},
+    }
+    if settings.clerk_issuer:
+        decode_kwargs["issuer"] = settings.clerk_issuer
+    try:
+        return jwt.decode(token, settings.clerk_jwt_key, **decode_kwargs)
+    except jwt.PyJWTError as exc:
+        raise HTTPException(status_code=401, detail="Invalid or expired sign-in session.") from exc
 
 app = FastAPI(
     title="Fake Recruiter Verifier API",
@@ -97,6 +125,7 @@ async def check_posting(request: Request, payload: CheckRequest):
     score, safety verdict, extracted details, individual findings, and evidence
     links used by the analysis.
     """
+    require_authenticated_user(request)
     start_time = time.time()
 
     if not payload.raw_text or len(payload.raw_text.strip()) < 10:

@@ -23,11 +23,13 @@ export function VerdictHero({
   claimAudit,
   linkedinReferralLeads = [],
   isMock,
+  dataQuality = "demo",
   hasSearchError,
   executionTime,
   onOpenExport,
 }) {
-  const isPass = verdictBadge === "success" || score < 35;
+  const isLive = dataQuality === "live";
+  const isPass = isLive && (verdictBadge === "success" || score < 35);
   const isFail = verdictBadge === "danger" || score >= 65;
 
   const containerTheme = isPass
@@ -50,9 +52,15 @@ export function VerdictHero({
 
       {/* Narrative & Verdict Breakdown */}
       <div className="flex-1 text-center md:text-left space-y-3">
+        {dataQuality !== "live" && (
+          <div className="rounded-xl border border-amber-300/50 bg-amber-300/15 px-4 py-3 text-left text-sm font-semibold text-amber-100">
+            This result uses {dataQuality === "demo" ? "demo or unavailable" : "partial"} data.
+            It is not a real verdict; verify the employer independently.
+          </div>
+        )}
         <div className="flex flex-wrap items-center justify-center md:justify-start gap-2.5">
           <Badge variant={badgeVariant} size="md" icon={Icon}>
-            {verdict}
+            {isLive ? verdict : "Demo result, not a real verdict"}
           </Badge>
 
           {executionTime && (

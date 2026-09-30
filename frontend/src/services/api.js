@@ -16,7 +16,7 @@ export const API_BASE_URL =
  * @param {AbortSignal} [signal]
  * @returns {Promise<object>}
  */
-export async function verifyPosting(rawText, signal) {
+export async function verifyPosting(rawText, signal, token) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
@@ -25,6 +25,7 @@ export async function verifyPosting(rawText, signal) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify({ raw_text: rawText }),
       signal: signal || controller.signal,

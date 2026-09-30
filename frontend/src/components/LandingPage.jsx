@@ -1,4 +1,5 @@
 import React from "react";
+import { SignInButton } from "@clerk/react";
 import {
   Activity,
   ArrowRight,
@@ -9,7 +10,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-export function LandingPage({ onEnter, isDark, onToggleTheme }) {
+export function LandingPage({ onEnter, isDark, onToggleTheme, requireAuth = false }) {
   return (
     <div className="relative isolate min-h-screen overflow-hidden bg-[#f3f0ee] text-[#141413] dark:bg-[#141413] dark:text-[#f3f0ee]">
       <div className="pointer-events-none absolute inset-0 -z-10 opacity-80 dark:opacity-100">
@@ -81,14 +82,26 @@ export function LandingPage({ onEnter, isDark, onToggleTheme }) {
             recruitment scams.
           </p>
           <div className="mt-9 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-            <button
-              type="button"
-              onClick={onEnter}
-              className="group inline-flex items-center gap-3 rounded-[20px] border border-[#141413] bg-[#141413] px-6 py-3.5 text-base font-medium text-[#f3f0ee] shadow-[0_24px_48px_rgba(20,20,19,0.08)] transition hover:-translate-y-0.5 hover:bg-[#262627] dark:border-[#f3f0ee] dark:bg-[#f3f0ee] dark:text-[#141413] dark:hover:bg-white"
-            >
-              Scan a recruiter message
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </button>
+            {requireAuth ? (
+              <SignInButton mode="modal">
+                <button
+                  type="button"
+                  className="group inline-flex items-center gap-3 rounded-[20px] border border-[#141413] bg-[#141413] px-6 py-3.5 text-base font-medium text-[#f3f0ee] shadow-[0_24px_48px_rgba(20,20,19,0.08)] transition hover:-translate-y-0.5 hover:bg-[#262627] dark:border-[#f3f0ee] dark:bg-[#f3f0ee] dark:text-[#141413] dark:hover:bg-white"
+                >
+                  Sign in to scan
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </button>
+              </SignInButton>
+            ) : (
+              <button
+                type="button"
+                onClick={onEnter}
+                className="group inline-flex items-center gap-3 rounded-[20px] border border-[#141413] bg-[#141413] px-6 py-3.5 text-base font-medium text-[#f3f0ee] shadow-[0_24px_48px_rgba(20,20,19,0.08)] transition hover:-translate-y-0.5 hover:bg-[#262627] dark:border-[#f3f0ee] dark:bg-[#f3f0ee] dark:text-[#141413] dark:hover:bg-white"
+              >
+                Scan a recruiter message
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </button>
+            )}
             <span className="text-xs font-medium uppercase tracking-[0.12em] text-[#696969] dark:text-[#d1cdc7]">
               Paste text. Get a risk score.
             </span>

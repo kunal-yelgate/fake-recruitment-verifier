@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import { useAuth } from "@clerk/react";
 import { Navbar } from "./components/layouts/Navbar";
 import { Footer } from "./components/layouts/Footer";
 import { PostingInput } from "./components/features/Scanner/PostingInput";
@@ -15,6 +16,7 @@ import { getBackendStatus } from "./services/api";
 import { LandingPage } from "./components/LandingPage";
 
 export default function App() {
+  const { isLoaded, isSignedIn } = useAuth();
   const [showLanding, setShowLanding] = useState(true);
   const [isDark, setIsDark] = useState(() => {
     const saved = localStorage.getItem("theme");
@@ -89,6 +91,17 @@ export default function App() {
   const isPass = results ? results.risk_score < 35 : false;
   const isFail = results ? results.risk_score >= 65 : false;
 
+  if (!isLoaded || !isSignedIn) {
+    return (
+      <LandingPage
+        isDark={isDark}
+        onToggleTheme={() => setIsDark((prev) => !prev)}
+        onEnter={() => setShowLanding(false)}
+        requireAuth
+      />
+    );
+  }
+
   if (showLanding) {
     return (
       <LandingPage
@@ -140,6 +153,7 @@ export default function App() {
               claimAudit={results.claim_audit}
               linkedinReferralLeads={results.linkedin_referral_leads}
               isMock={results.is_mock}
+              dataQuality={results.data_quality}
               hasSearchError={results.signals.some((signal) => signal.data_source === "error")}
               executionTime={results.execution_time_seconds}
               onOpenExport={() => setIsExportOpen(true)}
