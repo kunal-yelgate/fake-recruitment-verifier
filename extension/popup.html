@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Fake Recruiter Verifier</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <h1>Recruiter Verifier</h1>
+      <textarea id="text" rows="8" placeholder="Paste a recruiter message or job posting"></textarea>
+      <button id="check" type="button">Check text</button>
+      <p id="status" role="status"></p>
+      <section id="result" hidden>
+        <div id="badge" class="badge"></div>
+        <strong id="verdict"></strong>
+        <span id="score"></span>
+        <p id="summary"></p>
+      </section>
+      <a href="options.html" target="_blank">Configure API endpoint</a>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

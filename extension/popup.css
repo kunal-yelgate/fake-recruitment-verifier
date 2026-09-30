@@ -1,0 +1,62 @@
+body {
+  width: 320px;
+  margin: 0;
+  color: #172b4d;
+  font: 14px system-ui, sans-serif;
+}
+
+main {
+  padding: 16px;
+}
+
+h1 {
+  font-size: 18px;
+  margin: 0 0 12px;
+}
+
+textarea {
+  box-sizing: border-box;
+  width: 100%;
+  resize: vertical;
+}
+
+button {
+  width: 100%;
+  margin: 10px 0;
+  padding: 8px;
+  border: 0;
+  border-radius: 4px;
+  color: white;
+  background: #155eef;
+  cursor: pointer;
+}
+
+#status {
+  color: #667085;
+  min-height: 18px;
+}
+
+.badge {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 3px 7px;
+  border-radius: 10px;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.badge.success { background: #027a48; }
+.badge.warning { background: #b54708; }
+.badge.danger { background: #b42318; }
+
+#score {
+  color: #667085;
+  margin-left: 6px;
+}
+
+a {
+  color: #155eef;
+  font-size: 12px;
+}

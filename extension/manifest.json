@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "Fake Recruiter Verifier",
+  "version": "0.3.0",
+  "description": "Check selected recruiter or job-posting text against a configured Fake Recruiter Verifier API.",
+  "permissions": [
+    "contextMenus",
+    "notifications",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost:8000/*",
+    "http://127.0.0.1:8000/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Check recruiter text",
+    "default_popup": "popup.html"
+  },
+  "options_page": "options.html"
+}
