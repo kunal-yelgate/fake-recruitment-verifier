@@ -6,6 +6,7 @@ import sqlite3
 import time
 from typing import Any, Dict, Optional
 from app.config import settings
+from app.metrics import metrics
 
 
 class QueryCache:
@@ -59,13 +60,16 @@ class QueryCache:
                 if row:
                     response_json, created_at = row["response_json"], row["created_at"]
                     if (now - created_at) <= self.ttl_seconds:
+                        metrics.increment("cache_hits")
                         return json.loads(response_json)
                     else:
                         # Expired: delete record
                         conn.execute("DELETE FROM serpapi_cache WHERE cache_key = ?", (key,))
                         conn.commit()
         except Exception:
+            metrics.increment("cache_misses")
             return None
+        metrics.increment("cache_misses")
         return None
 
     def set(self, engine: str, params: Dict[str, Any], data: Dict[str, Any]):

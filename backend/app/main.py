@@ -4,7 +4,7 @@ import time
 import logging
 import jwt
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
@@ -17,6 +17,7 @@ from app.claim_pipeline import run_claim_pipeline, write_cited_explanation
 from app.signals import find_linkedin_referral_leads
 from app.scoring import calculate_risk_score
 from app.cache import cache
+from app.metrics import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +118,12 @@ async def health_check():
 async def cache_stats():
     """Retrieve SQLite query cache statistics."""
     return cache.get_stats()
+
+
+@app.get("/metrics", response_class=PlainTextResponse)
+async def prometheus_metrics():
+    """Expose privacy-safe counters for cache and provider health."""
+    return metrics.prometheus()
 
 
 @app.post("/check", response_model=CheckResponse)

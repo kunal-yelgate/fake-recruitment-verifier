@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional
 import httpx
 from app.config import settings
 from app.cache import cache
+from app.metrics import metrics
 
 SERPAPI_ENDPOINT = "https://serpapi.com/search.json"
 
@@ -16,6 +17,7 @@ class SerpApiClient:
 
     async def search(self, engine: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """Perform a cached SerpApi search query across specified engine."""
+        metrics.increment("serpapi_requests")
         search_params = {"engine": engine, **params}
 
         # 1. Check local SQLite cache first (24h TTL)
@@ -80,6 +82,7 @@ class SerpApiClient:
     ) -> Dict[str, Any]:
         """Return an explicit provider error without leaking the API key."""
         logging.getLogger(__name__).warning("SerpApi provider failure: %s", message)
+        metrics.increment("serpapi_errors")
         error_data = self._generate_mock_response(engine, params)
         error_data["_api_error"] = message
         error_data["_source"] = "error"
