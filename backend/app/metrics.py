@@ -5,6 +5,7 @@ from threading import Lock
 
 from app.config import settings
 
+
 @dataclass
 class Metrics:
     cache_hits: int = 0

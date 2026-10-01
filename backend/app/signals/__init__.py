@@ -16,8 +16,7 @@ from app.models import ExtractedFields, SignalResult
 from app.serpapi_client import serpapi_client
 
 from .company_footprint import check_company_footprint
-from .domain_email import check_domain_match
-from .domain_email import _email_auth_hints
+from .domain_email import _email_auth_hints, check_domain_match
 from .duplicate_posting import check_duplicate_posting
 from .linkedin import check_linkedin_presence
 from .linkedin_referrals import find_linkedin_referral_leads

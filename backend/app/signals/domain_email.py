@@ -88,6 +88,7 @@ async def check_domain_match(fields: ExtractedFields) -> SignalResult:
     unavailable = _unavailable_search_signal(data, "Domain & Email Match", "google", query, search_url)
     if unavailable:
         if free_email_domain:
+            auth_note = await _email_auth_hints(email_domain or claimed_domain or "")
             return SignalResult(
                 signal_key="domain_match",
                 signal_name="Domain & Email Match",

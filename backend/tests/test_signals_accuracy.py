@@ -180,6 +180,33 @@ async def test_free_email_still_checks_company_domain(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_free_email_provider_error_includes_auth_hints(monkeypatch):
+    from app.signals import domain_email, serpapi_client
+
+    fields = ExtractedFields(
+        company_name="Acme Example",
+        contact_email="recruiter@gmail.com",
+        claimed_domain="acme-example.com",
+    )
+
+    async def mock_search(engine, params):
+        return {"_source": "error"}
+
+    async def mock_auth_hints(domain):
+        assert domain == "gmail.com"
+        return " SPF is present."
+
+    monkeypatch.setattr(serpapi_client, "search", mock_search)
+    monkeypatch.setattr(domain_email, "_email_auth_hints", mock_auth_hints)
+
+    result = await check_domain_match(fields)
+
+    assert result.score_delta == 25
+    assert "gmail.com" in result.finding
+    assert "SPF is present" in result.finding
+
+
+@pytest.mark.asyncio
 async def test_domain_signal_flags_typo_of_official_domain(monkeypatch):
     fields = ExtractedFields(company_name="PayPal", claimed_domain="paypa1.com")
 
