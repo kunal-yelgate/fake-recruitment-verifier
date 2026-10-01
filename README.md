@@ -496,18 +496,37 @@ endpoint, and the core frontend authentication/evidence/verdict views. CI
 runs backend tests with coverage on Python 3.10, 3.11, and 3.12, plus Ruff
 and the frontend install, build, and test suite.
 
+## Deploying the backend on Render
+
+The repository includes a Render Blueprint at [`render.yaml`](render.yaml) for
+the FastAPI Docker service. In Render, create a **Blueprint** from this
+repository and provide the prompted environment variables:
+
+- `SERPAPI_KEY` enables live search; without it, results use demo data.
+- `GROQ_API_KEY` is optional; extraction and analysis fall back when it is absent.
+- `CLERK_JWT_KEY` is required because authentication is enabled by default.
+- `CORS_ORIGINS` should be the exact origin of the deployed frontend, without a
+  trailing slash (for example, `https://your-site.netlify.app`).
+
+Render assigns the service's `PORT` automatically. The Docker image binds to
+that port and uses `/health` as its health check. After deployment, confirm
+`https://<your-render-service>.onrender.com/health` returns a healthy response.
+
 ## Deploying the frontend
 
 The frontend is configured for **Netlify** through [`netlify.toml`](netlify.toml).
 
-1. Import `kunal-yelgate/fake-recruitment-verifier` into Netlify.
-2. Set the base directory to `frontend`.
-3. Use build command `npm run build`.
-4. Use publish directory `dist` relative to the base directory.
-5. Set `VITE_API_BASE_URL` to the deployed FastAPI backend.
-6. Add the final Netlify origin to the backend CORS allowlist.
+1. Import `kunal-yelgate/fake-recruitment-verifier` into Netlify; the settings
+   from `netlify.toml` configure the base directory, build command, publish
+   directory, and SPA fallback.
+2. Set `VITE_API_BASE_URL` to the deployed FastAPI backend URL.
+3. Set `VITE_CLERK_PUBLISHABLE_KEY` to the Clerk publishable key for the same
+   Clerk instance used to issue the backend JWTs.
+4. Add the deployed Netlify origin to the Render service's `CORS_ORIGINS`
+   environment variable, then redeploy the backend.
 
-The backend must be deployed separately to a Python-compatible host. Store `SERPAPI_KEY` and `GROQ_API_KEY` as deployment secrets.
+Keep all provider and Clerk verification keys in the backend's deployment
+environment; never put them in frontend `VITE_` variables.
 
 ## Limitations
 

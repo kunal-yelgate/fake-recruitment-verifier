@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: fake-recruiter-verifier-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: REQUIRE_AUTH
+        value: "true"
+      - key: SERPAPI_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CLERK_JWT_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
