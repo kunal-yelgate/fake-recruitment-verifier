@@ -508,6 +508,13 @@ repository and provide the prompted environment variables:
 - `CORS_ORIGINS` should be the exact origin of the deployed frontend, without a
   trailing slash (for example, `https://your-site.netlify.app`).
 
+If deploying the existing native Python service instead of the Blueprint, set
+its Root Directory to `backend` and keep its build command as
+`pip install -r requirements.txt`. The [`backend/.python-version`](backend/.python-version)
+pin selects Python 3.12.10, which has prebuilt wheels for the pinned
+`pydantic-core` dependency and avoids failing Rust source builds on newer
+default Python versions.
+
 Render assigns the service's `PORT` automatically. The Docker image binds to
 that port and uses `/health` as its health check. After deployment, confirm
 `https://<your-render-service>.onrender.com/health` returns a healthy response.
