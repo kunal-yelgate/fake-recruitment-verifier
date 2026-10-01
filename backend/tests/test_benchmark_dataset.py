@@ -5,6 +5,8 @@ import json
 import re
 from pathlib import Path
 
+import pytest
+
 from benchmark_synthetic_dataset import run_benchmark
 
 DATASET = Path(__file__).resolve().parents[1] / "benchmarks" / "dataset"
@@ -66,8 +68,8 @@ def test_synthetic_benchmark_metrics_are_recorded_regression_baseline() -> None:
     metrics = report["metrics"]
 
     assert metrics["sample_size"] == 102
-    assert metrics["accuracy"] == 2 / 3
-    assert metrics["macro_f1"] == 5 / 9
+    assert metrics["accuracy"] == pytest.approx(2 / 3)
+    assert metrics["macro_f1"] == pytest.approx(5 / 9)
     assert metrics["confusion_matrix"]["rows"] == {
         "scam": {"scam": 34, "legit": 0, "ambiguous": 0},
         "legit": {"scam": 0, "legit": 0, "ambiguous": 34},
