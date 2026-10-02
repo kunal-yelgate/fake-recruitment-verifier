@@ -241,13 +241,13 @@ source .venv/bin/activate
 Run this from the repository root:
 
 ```bash
-python -m pip install -r backend/requirements.txt
+python -m pip install --require-hashes -r backend/requirements.lock
 ```
 
 For local development and tests, install the development layer instead:
 
 ```bash
-python -m pip install -r backend/requirements-dev.txt
+python -m pip install --require-hashes -r backend/requirements-dev.lock
 ```
 
 Anthropic extraction is optional; install its provider layer only when
@@ -282,7 +282,11 @@ GROQ_MODEL=llama-3.3-70b-versatile
 HOST=127.0.0.1
 PORT=8000
 DEBUG=True
+REQUIRE_AUTH=False
 ```
+
+`REQUIRE_AUTH=False` is only for local development without a Clerk JWT
+verification key. Keep authentication enabled in deployed environments.
 
 Never commit `.env` or paste API keys into source code, tests, screenshots, issues, or chat. If a key is exposed, revoke it and create a replacement.
 
@@ -430,12 +434,15 @@ The repository includes [benchmark_real_postings.py](backend/benchmark_real_post
 Run it only with a valid SerpApi key:
 
 ```bash
-python backend/benchmark_real_postings.py path/to/fake_job_postings.csv \
+python backend/benchmark_real_postings.py backend/benchmarks/fake_job_postings.csv \
   --live \
   --seed 42 \
   --per-class 15 \
   --output benchmark-results/run.json
 ```
+
+Benchmark input, cache, and report paths must resolve inside the repository
+root; place downloaded datasets under `backend/benchmarks/`.
 
 The runner:
 
@@ -495,6 +502,14 @@ search limits, provider failures, scoring, signal behavior, the FastAPI
 endpoint, and the core frontend authentication/evidence/verdict views. CI
 runs backend tests with coverage on Python 3.10, 3.11, and 3.12, plus Ruff
 and the frontend install, build, and test suite.
+
+CI and Docker use hash-locked backend dependency files. When changing Python
+dependencies, regenerate them from the source requirements with:
+
+```bash
+uv pip compile backend/requirements.txt --python-version 3.10 --generate-hashes --output-file backend/requirements.lock
+uv pip compile backend/requirements-dev.txt --python-version 3.10 --generate-hashes --output-file backend/requirements-dev.lock
+```
 
 ## Deploying the backend on Render
 

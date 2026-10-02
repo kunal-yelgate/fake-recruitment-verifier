@@ -70,9 +70,27 @@ export default function App() {
     }
   }, [isDark]);
 
-  // Check health periodically
+  // Keep the backend status in sync while the scanner is open.
   useEffect(() => {
-    getBackendStatus().then(setBackendHealth);
+    let active = true;
+    const refreshBackendStatus = async () => {
+      try {
+        const status = await getBackendStatus();
+        if (active) setBackendHealth(status);
+      } catch {
+        if (active) setBackendHealth({ online: false });
+      }
+    };
+
+    void refreshBackendStatus();
+    const intervalId = window.setInterval(() => {
+      void refreshBackendStatus();
+    }, 30000);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
   }, []);
 
   const handleVerify = () => {

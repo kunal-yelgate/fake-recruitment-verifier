@@ -29,7 +29,7 @@ export function useScanHistory() {
     const snippet = rawInputText.slice(0, 140).replace(/\s+/g, " ") + "...";
 
     const newItem = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: crypto.randomUUID(),
       timestamp: Date.now(),
       company,
       role,
