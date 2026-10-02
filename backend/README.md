@@ -6,7 +6,7 @@ FastAPI-powered asynchronous verification service backed by SerpApi live search 
 
 ```bash
 # 1. Install runtime dependencies
-pip install -r requirements.txt
+pip install --require-hashes -r requirements.lock
 
 # Optional: enable Anthropic extraction support
 pip install -r requirements-optional.txt

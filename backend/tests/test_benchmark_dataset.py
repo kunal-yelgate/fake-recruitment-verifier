@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from benchmark_paths import resolve_benchmark_path
 from benchmark_synthetic_dataset import run_benchmark
 
 DATASET = Path(__file__).resolve().parents[1] / "benchmarks" / "dataset"
@@ -61,6 +62,11 @@ def test_benchmark_has_no_contact_pii_and_documents_provenance() -> None:
     assert "synthetic" in provenance
     assert "no real contact details" in provenance
     assert "not copied" in provenance
+
+
+def test_benchmark_paths_must_stay_inside_repository(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="must stay inside"):
+        resolve_benchmark_path(tmp_path / "outside.json")
 
 
 def test_synthetic_benchmark_metrics_are_recorded_regression_baseline() -> None:

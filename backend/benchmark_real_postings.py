@@ -7,23 +7,23 @@ to 180 searches, depending on the cache and available posting details.
 import argparse
 import asyncio
 import csv
+import hashlib
 import json
-import random
 import re
 import sys
 import tempfile
 from pathlib import Path
 from typing import Any
 
+import app.serpapi_client as serpapi_module
 from app.cache import QueryCache
 from app.config import settings
 from app.extraction import extract_with_regex
 from app.scoring import SCAM_THRESHOLD, calculate_risk_score
-import app.serpapi_client as serpapi_module
 from app.serpapi_client import serpapi_client
 from app.signals import evaluate_all_signals
+from benchmark_paths import resolve_benchmark_path
 from benchmark_synthetic_dataset import run_benchmark as run_synthetic_benchmark
-
 
 DATASET_URL = "https://www.kaggle.com/datasets/shivamb/real-or-fake-fake-jobposting-prediction"
 TEXT_COLUMNS = (
@@ -44,6 +44,7 @@ TEXT_COLUMNS = (
 
 
 def load_sample(csv_path: Path, per_class: int, seed: int) -> list[tuple[int, int, dict[str, str]]]:
+    csv_path = resolve_benchmark_path(csv_path)
     labeled_rows: dict[int, list[tuple[int, dict[str, str]]]] = {0: [], 1: []}
     with csv_path.open("r", encoding="utf-8-sig", newline="") as csv_file:
         reader = csv.DictReader(csv_file)
@@ -64,14 +65,18 @@ def load_sample(csv_path: Path, per_class: int, seed: int) -> list[tuple[int, in
                 f"Need {per_class} rows for label {label}; found {len(rows)}."
             )
 
-    rng = random.Random(seed)
     sample = [
         (label, row_number, row)
         for label, rows in labeled_rows.items()
-        for row_number, row in rng.sample(rows, per_class)
+        for row_number, row in sorted(
+            rows,
+            key=lambda item: hashlib.sha256(f"{seed}:{label}:{item[0]}".encode()).digest(),
+        )[:per_class]
     ]
-    rng.shuffle(sample)
-    return sample
+    return sorted(
+        sample,
+        key=lambda item: hashlib.sha256(f"{seed}:{item[0]}:{item[1]}".encode()).digest(),
+    )
 
 
 def make_posting_text(row: dict[str, str]) -> str:
@@ -115,6 +120,12 @@ async def run_live_benchmark(
     output_path: Path | None,
     cache_db: Path | None,
 ) -> dict[str, Any]:
+    csv_path = resolve_benchmark_path(csv_path)
+    if output_path is not None:
+        output_path = resolve_benchmark_path(output_path)
+    if cache_db is not None:
+        cache_db = resolve_benchmark_path(cache_db)
+
     original_search = serpapi_client.search
     original_cache = serpapi_module.cache
     search_counts = {"live_requests": 0, "cached_live_results": 0, "fallbacks": 0}
@@ -230,6 +241,16 @@ def main() -> int:
         help="Run the offline privacy-safe benchmark corpus without SerpApi.",
     )
     args = parser.parse_args()
+
+    try:
+        if args.output is not None:
+            args.output = resolve_benchmark_path(args.output)
+        if args.cache_db is not None:
+            args.cache_db = resolve_benchmark_path(args.cache_db)
+        if args.csv_file is not None:
+            args.csv_file = resolve_benchmark_path(args.csv_file)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     if args.synthetic:
         try:

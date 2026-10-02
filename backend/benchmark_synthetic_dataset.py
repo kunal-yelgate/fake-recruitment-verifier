@@ -7,13 +7,13 @@ threat signal. It never calls SerpApi or any other provider.
 import argparse
 import asyncio
 import json
-from collections import Counter
 from pathlib import Path
 from typing import Any
 
 from app.models import ExtractedFields
 from app.scoring import calculate_risk_score
 from app.signals.text_threats import check_in_text_threats
+from benchmark_paths import resolve_benchmark_path
 
 LABELS = ("scam", "legit", "ambiguous")
 DATASET_PATH = Path(__file__).resolve().parent / "benchmarks" / "dataset" / "postings.json"
@@ -21,6 +21,7 @@ DATASET_PATH = Path(__file__).resolve().parent / "benchmarks" / "dataset" / "pos
 
 def load_dataset(path: Path = DATASET_PATH) -> list[dict[str, str]]:
     """Load and validate the privacy-safe benchmark fixture."""
+    path = resolve_benchmark_path(path)
     rows = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(rows, list) or not rows:
         raise ValueError("Benchmark dataset must be a non-empty JSON list.")
@@ -93,6 +94,13 @@ def main() -> int:
     parser.add_argument("--dataset", type=Path, default=DATASET_PATH)
     parser.add_argument("--output", type=Path, help="Optional JSON report path")
     args = parser.parse_args()
+    try:
+        if args.output is not None:
+            args.output = resolve_benchmark_path(args.output)
+        args.dataset = resolve_benchmark_path(args.dataset)
+    except ValueError as exc:
+        parser.error(str(exc))
+
     report = asyncio.run(run_benchmark(args.dataset))
     if args.output:
         args.output.parent.mkdir(parents=True, exist_ok=True)
