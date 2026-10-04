@@ -550,11 +550,11 @@ The frontend is configured for **Netlify** through [`netlify.toml`](netlify.toml
 1. Connect `kunal-yelgate/fake-recruitment-verifier` to Netlify and select
    `main` as its production branch; [`netlify.toml`](netlify.toml) configures
    the frontend base directory, build command, publish directory, and SPA fallback.
-2. In Netlify's site environment variables, set `VITE_API_BASE_URL` to the
-   deployed FastAPI backend URL and `VITE_CLERK_PUBLISHABLE_KEY` to the Clerk
+2. The production API URL is set in `netlify.toml`. In Netlify's site
+   environment variables, set `VITE_CLERK_PUBLISHABLE_KEY` to the Clerk
    publishable key for the same Clerk instance used to issue backend JWTs.
-   These values must be set before the production build because Vite embeds
-   `VITE_` variables in the frontend bundle.
+   Set the Clerk key before the production build because Vite embeds `VITE_`
+   variables in the frontend bundle.
 3. Add the deployed Netlify origin to the Render service's `CORS_ORIGINS`
    environment variable, then redeploy the backend.
 
