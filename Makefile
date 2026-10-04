@@ -22,7 +22,7 @@ frontend-build:
 build: frontend-build
 
 lint: frontend-build
-	ruff check backend/app backend/tests
+	ruff check backend/app backend/tests backend/benchmark_paths.py backend/benchmark_real_postings.py backend/benchmark_synthetic_dataset.py
 
 docker-up:
 	docker compose up --build

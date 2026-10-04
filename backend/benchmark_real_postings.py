@@ -22,7 +22,7 @@ from app.extraction import extract_with_regex
 from app.scoring import SCAM_THRESHOLD, calculate_risk_score
 from app.serpapi_client import serpapi_client
 from app.signals import evaluate_all_signals
-from benchmark_paths import resolve_benchmark_path
+from benchmark_paths import ensure_benchmark_parent, resolve_benchmark_path, write_benchmark_report
 from benchmark_synthetic_dataset import run_benchmark as run_synthetic_benchmark
 
 DATASET_URL = "https://www.kaggle.com/datasets/shivamb/real-or-fake-fake-jobposting-prediction"
@@ -156,8 +156,7 @@ async def run_live_benchmark(
 
     temp_dir = None
     if cache_db:
-        cache_db.parent.mkdir(parents=True, exist_ok=True)
-        cache_path = cache_db
+        cache_path = ensure_benchmark_parent(cache_db)
     else:
         temp_dir = tempfile.TemporaryDirectory(prefix="truerecruit-benchmark-")
         cache_path = Path(temp_dir.name) / "benchmark.sqlite"
@@ -221,8 +220,7 @@ async def run_live_benchmark(
     }
 
     if output_path:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        write_benchmark_report(output_path, report)
 
     return report
 
@@ -259,8 +257,7 @@ def main() -> int:
             print(f"Benchmark failed: {exc}", file=sys.stderr)
             return 1
         if args.output:
-            args.output.parent.mkdir(parents=True, exist_ok=True)
-            args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+            write_benchmark_report(args.output, report)
             print(f"Report saved to: {args.output}")
         print(json.dumps(report["metrics"], indent=2))
         return 0

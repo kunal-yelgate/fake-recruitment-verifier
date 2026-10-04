@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from benchmark_paths import resolve_benchmark_path
+from benchmark_paths import REPOSITORY_ROOT, resolve_benchmark_path, write_benchmark_report
 from benchmark_synthetic_dataset import run_benchmark
 
 DATASET = Path(__file__).resolve().parents[1] / "benchmarks" / "dataset"
@@ -67,6 +67,15 @@ def test_benchmark_has_no_contact_pii_and_documents_provenance() -> None:
 def test_benchmark_paths_must_stay_inside_repository(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="must stay inside"):
         resolve_benchmark_path(tmp_path / "outside.json")
+
+    outside_report = tmp_path / "reports" / "outside.json"
+    with pytest.raises(ValueError, match="must stay inside"):
+        write_benchmark_report(outside_report, {"result": "unsafe"})
+    assert not outside_report.exists()
+
+    traversal_path = REPOSITORY_ROOT / ".." / "outside.json"
+    with pytest.raises(ValueError, match="must stay inside"):
+        resolve_benchmark_path(traversal_path)
 
 
 def test_synthetic_benchmark_metrics_are_recorded_regression_baseline() -> None:

@@ -511,6 +511,15 @@ uv pip compile backend/requirements.txt --python-version 3.10 --generate-hashes 
 uv pip compile backend/requirements-dev.txt --python-version 3.10 --generate-hashes --output-file backend/requirements-dev.lock
 ```
 
+### SonarCloud analysis
+
+The CI workflow runs SonarCloud analysis after backend and frontend checks pass.
+The organization and project key are set in [`sonar-project.properties`](sonar-project.properties).
+Add a SonarCloud analysis token as the `SONAR_TOKEN` Actions secret in the
+GitHub repository settings; do not commit or expose the token. Analysis is
+skipped for pull requests from forks because GitHub does not provide repository
+secrets to those workflows.
+
 ## Deploying the backend on Render
 
 The repository includes a Render Blueprint at [`render.yaml`](render.yaml) for
@@ -538,13 +547,15 @@ that port and uses `/health` as its health check. After deployment, confirm
 
 The frontend is configured for **Netlify** through [`netlify.toml`](netlify.toml).
 
-1. Import `kunal-yelgate/fake-recruitment-verifier` into Netlify; the settings
-   from `netlify.toml` configure the base directory, build command, publish
-   directory, and SPA fallback.
-2. Set `VITE_API_BASE_URL` to the deployed FastAPI backend URL.
-3. Set `VITE_CLERK_PUBLISHABLE_KEY` to the Clerk publishable key for the same
-   Clerk instance used to issue the backend JWTs.
-4. Add the deployed Netlify origin to the Render service's `CORS_ORIGINS`
+1. Connect `kunal-yelgate/fake-recruitment-verifier` to Netlify and select
+   `main` as its production branch; [`netlify.toml`](netlify.toml) configures
+   the frontend base directory, build command, publish directory, and SPA fallback.
+2. In Netlify's site environment variables, set `VITE_API_BASE_URL` to the
+   deployed FastAPI backend URL and `VITE_CLERK_PUBLISHABLE_KEY` to the Clerk
+   publishable key for the same Clerk instance used to issue backend JWTs.
+   These values must be set before the production build because Vite embeds
+   `VITE_` variables in the frontend bundle.
+3. Add the deployed Netlify origin to the Render service's `CORS_ORIGINS`
    environment variable, then redeploy the backend.
 
 Keep all provider and Clerk verification keys in the backend's deployment

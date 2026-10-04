@@ -13,7 +13,7 @@ from typing import Any
 from app.models import ExtractedFields
 from app.scoring import calculate_risk_score
 from app.signals.text_threats import check_in_text_threats
-from benchmark_paths import resolve_benchmark_path
+from benchmark_paths import resolve_benchmark_path, write_benchmark_report
 
 LABELS = ("scam", "legit", "ambiguous")
 DATASET_PATH = Path(__file__).resolve().parent / "benchmarks" / "dataset" / "postings.json"
@@ -103,8 +103,7 @@ def main() -> int:
 
     report = asyncio.run(run_benchmark(args.dataset))
     if args.output:
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        write_benchmark_report(args.output, report)
     print(json.dumps(report["metrics"], indent=2))
     return 0
 
